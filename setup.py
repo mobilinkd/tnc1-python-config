@@ -1,5 +1,13 @@
+#!/usr/bin/env python2.7
+
 import os, site, sys
-from cx_Freeze import setup, Executable
+
+freeze = False
+try:
+    from cx_Freeze import setup, Executable
+    freeze = True
+except ImportError:
+    from distutils.core import setup
 
 ## Get the site-package folder, not everybody will install
 ## Python into C:\PythonXX
@@ -62,11 +70,15 @@ base = None
 if sys.platform == "win32":
     base = "Win32GUI"
 
-executables = [
-    Executable("MobilinkdTnc1Config.py",
-               base=base
-    )
-]
+if freeze:
+    executables = [
+        Executable("MobilinkdTnc1Config.py",
+                   base=base
+        )
+    ]
+else:
+    executables = ["MobilinkdTnc1Config.py"]
+    
 
 buildOptions = dict(
     compressed = False,
