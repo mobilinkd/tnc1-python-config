@@ -195,13 +195,16 @@ class TncModel(object):
             self.ser = serial.Serial(self.serial, 115200, timeout=.1)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)
             self.sio_writer = self.ser # io.BufferedWriter(self.ser)
-            self.app.tnc_connect()
 
             self.reading = True
             self.thd = threading.Thread(target=self.readSerial, args=(self.sio_reader,))
             self.thd.start()
 
             self.sio_writer.write(self.encoder.encode(self.GET_OUTPUT_VOUME))
+            self.sio_writer.flush()
+            self.app.tnc_connect()
+            time.sleep(1)
+            self.sio_writer.write(self.encoder.encode(self.STOP_TX))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
 
@@ -212,13 +215,16 @@ class TncModel(object):
         try:
             self.sio_reader = self.ser
             self.sio_writer = self.ser
-            self.app.tnc_connect()
 
             self.reading = True
             self.thd = threading.Thread(target=self.readSerial, args=(self.sio_reader,))
             self.thd.start()
 
             self.sio_writer.write(self.encoder.encode(self.GET_OUTPUT_VOUME))
+            self.sio_writer.flush()
+            self.app.tnc_connect()
+            time.sleep(1)
+            self.sio_writer.write(self.encoder.encode(self.STOP_TX))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
         except Exception, e:
@@ -334,7 +340,7 @@ class TncModel(object):
         self.ptt = value
         
         try:
-            if value & self.tone != self.TONE_NONE:
+            if value and self.tone != self.TONE_NONE:
                 if self.tone == self.TONE_MARK:
                     self.sio_writer.write(self.encoder.encode(self.SEND_MARK))
                 elif self.tone == self.TONE_SPACE:
