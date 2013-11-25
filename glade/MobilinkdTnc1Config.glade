@@ -1,6 +1,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <!-- interface-requires gtk+ 3.6 -->
+  <object class="GtkMessageDialog" id="firmware_error_dialog">
+    <property name="can_focus">False</property>
+    <property name="border_width">5</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="message_type">warning</property>
+    <property name="buttons">ok</property>
+    <property name="text" translatable="yes">Firmware Upload Failed</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="messagedialog-vbox">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="messagedialog-action_area">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkProgressBar" id="firmware_progress_bar">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="show_text">True</property>
+  </object>
+  <object class="GtkMessageDialog" id="firmware_success_dialog">
+    <property name="can_focus">False</property>
+    <property name="border_width">5</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="buttons">ok</property>
+    <property name="text" translatable="yes">Firmware Upload Succeeded</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="messagedialog-vbox1">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="messagedialog-action_area1">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkImage" id="image1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-go-down</property>
+  </object>
   <object class="GtkWindow" id="window">
     <property name="can_focus">False</property>
     <property name="default_width">640</property>
@@ -128,7 +193,7 @@
                         </child>
                         <child>
                           <object class="GtkToggleButton" id="ptt_toggle_button">
-                            <property name="label">gtk-media-play</property>
+                            <property name="label">gtk-execute</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">True</property>
@@ -202,35 +267,66 @@
                   <object class="GtkBox" id="box4">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="orientation">vertical</property>
                     <child>
-                      <object class="GtkLevelBar" id="receive_volume_levelbar">
+                      <object class="GtkBox" id="box5">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="has_tooltip">True</property>
-                        <property name="tooltip_markup" translatable="yes">RX volume level.  Open the squelch on the radio and adjust the output volume until the bar turns blue.  Best results are acheived when the second to last bar flickers.</property>
-                        <property name="tooltip_text" translatable="yes">RX volume level.  Open the squelch on the radio and adjust the output volume until the bar turns blue.  Best results are acheived when the second to last bar flickers.</property>
-                        <property name="margin_left">10</property>
-                        <property name="margin_right">10</property>
-                        <property name="margin_top">10</property>
-                        <property name="margin_bottom">10</property>
-                        <property name="max_value">8</property>
-                        <property name="mode">discrete</property>
+                        <property name="orientation">vertical</property>
+                        <child>
+                          <object class="GtkLevelBar" id="receive_volume_levelbar">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="has_tooltip">True</property>
+                            <property name="tooltip_markup" translatable="yes">RX volume level.  Open the squelch on the radio and adjust the output volume until the bar turns blue.  Best results are acheived when the second to last bar flickers.</property>
+                            <property name="tooltip_text" translatable="yes">RX volume level.  Open the squelch on the radio and adjust the output volume until the bar turns blue.  Best results are acheived when the second to last bar flickers.</property>
+                            <property name="margin_left">10</property>
+                            <property name="margin_right">10</property>
+                            <property name="margin_top">10</property>
+                            <property name="margin_bottom">10</property>
+                            <property name="max_value">8</property>
+                            <property name="mode">discrete</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkProgressBar" id="receive_volume_progressbar">
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">False</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
                       </object>
                       <packing>
-                        <property name="expand">False</property>
+                        <property name="expand">True</property>
                         <property name="fill">True</property>
                         <property name="position">0</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkProgressBar" id="receive_volume_progressbar">
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
+                      <object class="GtkToggleButton" id="input_atten_toggle_button">
+                        <property name="label" translatable="yes">Atten</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">True</property>
+                        <property name="tooltip_text" translatable="yes">Input volume attenuation.  Select this when a higher
+volume from the radio produces better results.</property>
+                        <property name="image">image1</property>
+                        <property name="always_show_image">True</property>
+                        <signal name="toggled" handler="on_input_atten_toggle_button_toggled" swapped="no"/>
                       </object>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">True</property>
+                        <property name="padding">4</property>
+                        <property name="pack_type">end</property>
                         <property name="position">1</property>
                       </packing>
                     </child>

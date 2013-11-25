@@ -16,7 +16,7 @@ import threading
 import math
 import time
 from StringIO import StringIO
-from Avr109 import Avr109
+from BootLoader import BootLoader
 
 def comports():
     if os.name == 'posix':
@@ -288,6 +288,23 @@ class TncModel(object):
         except Exception, e:
             self.app.exception(e)
     
+    def set_input_atten(self, value):
+        try:
+            self.sio_writer.write(self.encoder.encode(self.SET_INPUT_VOLUME % chr(2 * value)))
+            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+            self.sio_writer.flush()
+        except Exception, e:
+            self.app.exception(e)
+    
+    def set_squelch_level(self, value):
+        try:
+            self.sio_writer.write(self.encoder.encode(self.SET_SQUELCH_LEVEL % chr(value)))
+            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+            self.sio_writer.flush()
+        except Exception, e:
+            self.app.exception(e)
+    
+
     def set_persistence(self, p):
         try:
             self.sio_writer.write(self.encoder.encode(self.SET_PERSISTENCE % chr(p)))
@@ -355,32 +372,48 @@ class TncModel(object):
         except Exception, e:
             self.app.exception(e)
     
-    def upload_firmware(self, filename):
-        self.disconnect()
-        
-        self.sio_reader = self.ser
+    def upload_firmware_thd(self, filename, gui):
 
         try:
-            bootloader = Avr109(self.sio_reader, self.sio_writer, filename)
-            bootloader.start()
-            bootloader.initialize()
-            bootloader.enter_program_mode()
-            bootloader.leave_program_mode()
-            bootloader.exit_bootloader()    # Reboot
+            bootloader = BootLoader(self.ser, self.ser, filename, gui)
         except Exception, e:
-            self.app.exception(e)
+            gui.failure(str(e))
+            return
+
+        try:
+            bootloader.load()
+            if not bootloader.verify():
+                bootloader.chip_erase()
+                gui.failure("Firmware verification failed.")
+                return
+            bootloader.exit()
+            self.ser.close()
+            self.ser = None
+            self.sio_reader = None
+            self.sio_writer = None
+            time.sleep(5)
+            gui.success()
+        except Exception, e:
+            bootloader.chip_erase()
+            gui.failure(str(e))
+
         
-        self.sio_reader = None
-        self.sio_writer = None
+    def upload_firmware(self, filename, gui):
+
+        self.disconnect()
+        self.firmware_thd = threading.Thread(target=self.upload_firmware_thd, args=(filename, gui))
+        self.firmware_thd.start()    
+
+    def upload_firmware_complete(self):
         
-        self.reconnect()
+        self.firmware_thd.join()
+        self.connect()
     
 class MobilinkdTnc1Config(object):
 
     def __init__(self):
         self.tnc = None
         self.connect_message = None
-        GObject.threads_init()
         self.builder = Gtk.Builder()
         self.builder.add_from_file("glade/MobilinkdTnc1Config.glade")
         
@@ -437,6 +470,9 @@ class MobilinkdTnc1Config(object):
     def on_ptt_toggle_button_toggled(self, widget, data=None):
         self.tnc.set_ptt(widget.get_active())
     
+    def on_input_atten_toggle_button_toggled(self, widget, data=None):
+        self.tnc.set_input_atten(widget.get_active())
+    
     def on_transmit_volume_scale_value_changed(self, widget, data=None):
         self.tnc.set_tx_volume(int(widget.get_value()))
 
@@ -445,6 +481,7 @@ class MobilinkdTnc1Config(object):
         self.receive_volume_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_LOW, 5.0)
         self.receive_volume_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_HIGH, 7.0)
         self.receive_volume_levelbar.set_value(0.0)
+        self.input_atten_toggle_button = self.builder.get_object("input_atten_toggle_button")
 
         self.receive_volume_progressbar = self.builder.get_object("receive_volume_progressbar")
 
@@ -474,7 +511,7 @@ class MobilinkdTnc1Config(object):
         self.kiss_duplex_toggle_button = self.builder.get_object("kiss_duplex_toggle_button")
     
     def on_dcd_toggled(self, widget, data=None):
-        pass
+        self.tnc.set_squelch_level((not widget.get_active()) * 16);
     
     def on_kiss_tx_delay_spin_button_value_changed(self, widget, data=None):
         self.tnc.set_tx_delay(widget.get_value_as_int())
@@ -515,7 +552,9 @@ class MobilinkdTnc1Config(object):
         self.upload_button.set_sensitive(True)
         
     def on_upload_button_clicked(self, widget, data=None):
-        self.tnc.upload_firmware(self.firmware_file)
+        self.firmware_gui = FirmwareUploadGui(self.builder, self.tnc)
+        self.tnc.upload_firmware(self.firmware_file, self.firmware_gui)
+        self.firmware_gui_tag = GObject.idle_add(self.check_firmware_upload_complete)
     
     def tnc_connect(self):
         self.transmit_volume_scale.set_sensitive(True)
@@ -563,10 +602,94 @@ class MobilinkdTnc1Config(object):
         
     def tnc_tx_volume(self, value):
         self.transmit_volume_scale.set_value(value)
+    
+    def tnc_input_atten(self, value):
+        self.input_atten_toggle_button.set_active(value > 0);
         
     def exception(self, e):
         self.status.push(1, str(e))
+    
+    def notice(self, msg):
+        self.status.push(1, msg)
         
+    def check_firmware_upload_complete(self):
+        
+        assert(self.firmware_gui is not None)
+        if not self.firmware_gui.complete():
+            self.firmware_gui_tag = GObject.idle_add(self.check_firmware_upload_complete)
+            return
+        
+        self.tnc.upload_firmware_complete()
+        self.firmware_gui.dialog()
+        self.firmware_gui = None
+        # Gtk.main_quit()
+        
+
+def replace_widget(current, new):
+    """Replace one widget with another.
+    'current' has to be inside a container (e.g. gtk.VBox).
+    """
+    container = current.get_parent()
+    assert container # is "current" inside a container widget?
+
+    Gtk.Container.remove(container, current)
+    container.add(new)
+    
+
+class FirmwareUploadGui(object):
+    
+    def __init__(self, builder, tnc):
+        
+        self.builder = builder
+        self.tnc = tnc
+        self.statusbar = self.builder.get_object("statusbar")
+        self.progressbar = self.builder.get_object("firmware_progress_bar")
+        self.success_dialog = self.builder.get_object("firmware_success_dialog")
+        self.error_dialog = self.builder.get_object("firmware_error_dialog")
+        replace_widget(self.statusbar, self.progressbar)
+        self.result = None
+    
+    def __del__(self):
+        
+        replace_widget(self.progressbar,self.statusbar)
+    
+    def complete(self):
+    
+        return self.result is not None
+    
+    def set_steps(self, steps):
+        
+        self.progressbar.set_pulse_step(1.0 / steps)
+
+    def writing(self):
+        
+        self.progressbar.set_text("Writing...")
+        self.progressbar.set_fraction(0.0)
+    
+    def verifying(self):
+        
+        self.progressbar.set_text("Verifying...")
+        self.progressbar.set_fraction(0.0)
+    
+    def pulse(self):
+        
+        self.progressbar.pulse()
+    
+    def success(self):
+        
+        self.result = self.success_dialog
+    
+    def failure(self, msg):
+        
+        self.error_dialog.format_secondary_text(msg)
+        self.result = self.error_dialog
+
+    def dialog(self):
+        
+        self.result.run()
+        self.result.hide()
+        self.success_dialog.hide()
+
 
 if __name__ == '__main__':
 

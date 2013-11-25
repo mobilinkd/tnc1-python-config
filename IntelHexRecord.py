@@ -79,6 +79,12 @@ class IntelHexRecord(object):
         
         if not self.isValid(line):
             raise IOError("checksum mismatch: '" + line + "'")
+        
+    
+    def __repr__(self):
+        
+        return "%s:\n\tRecord Type: %x\n\t    Address: %x\n\t     Length: %d\n\t   Checksum: %x" % \
+            (self.__class__.__name__, self.recordType, self.address, self.byteCount, self.checksum)
 
 class IHexParser(object):
     
@@ -88,12 +94,14 @@ class IHexParser(object):
     
     def __next__(self):
         
-        for line in input:
+        for line in self.input:
             record = IntelHexRecord(line.strip())
             yield record
         
 
 if __name__ == "__main__":
+    
+    import sys
     
     line = ":100000000C949C010C94C5010C94C5010C94C50181"
     record = IntelHexRecord(line)
@@ -114,12 +122,11 @@ if __name__ == "__main__":
     print record.checksum
     print record.computeChecksum(line)
     
-    for line in file("/home/rob/mobilinkd-tnc1/images/mobilinkd-286.hex"):
+    filename = "/home/rob/mobilinkd-tnc1/images/mobilinkd-286.hex"
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+    
+    for line in file(filename):
         record = IntelHexRecord(line.strip())
-        print record.byteCount
-        print record.address
-        print record.recordType
-        print record.data
-        print record.checksum
-        print record.computeChecksum(line)
+        print record
         
