@@ -59,6 +59,7 @@ for dll in missing_dll:
 
 ## Let's add glade folder and files
 include_files.append((glade_folder, glade_folder))
+include_files.append(['Avr109.py', 'BootLoader.py', 'IntexHexRecord.py'])
 
 ## Let's add gtk libraries folders and files
 for lib in gtk_libs:
@@ -74,11 +75,11 @@ if freeze:
     executables = [
         Executable("MobilinkdTnc1Config.py",
                    base=base
-        )
-    ]
+        )    ]
 else:
-    executables = ["MobilinkdTnc1Config.py"]
-    
+    executables = ['MobilinkdTnc1Config.py']
+
+py_modules = ['Avr109', 'BootLoader', 'IntelHexRecord']
 
 buildOptions = dict(
     compressed = False,
@@ -105,5 +106,6 @@ connected to the computer and assigned a serial port.""",
     platforms = ('Any',),
     keywords = ('mobilinkd', 'aprs', 'ham', 'afsk', 'tnc'),
     requires = ['pyserial', 'pygobject3'],
-    scripts = executables
+    scripts = executables,
+    py_modules = py_modules
 )
