@@ -72,10 +72,11 @@ class Firmware(object):
 class BootLoader(object):
     
     def __init__(self, reader, writer, filename, gui = None):
-        self.avr109 = Avr109(reader, writer)
+        self.avr109 = None
         self.reader = reader
         self.firmware = Firmware(filename)
         self.gui = gui
+        self.avr109 = Avr109(reader, writer)
         self.initialize()
         self.block = []
         self.address = 0
@@ -96,11 +97,11 @@ class BootLoader(object):
         self.device_list = self.avr109.get_device_list()
         self.signature = self.avr109.get_device_signature()
  
-        print "  Found programmer: Id = '%s'; type = '%s'" % (self.loader, self.programmer_type)
-        print "Programmer Version: %s" % self.sw_version
-        print "Has auto-increment: %s" % (str(self.auto_increment))
-        print "    Has block-mode: %s (size = %d)" % (str(self.block_size > 0), self.block_size)
-        print "  Device Signature: %02x %02x %02x" % (ord(self.signature[0]),ord(self.signature[1]),ord(self.signature[2]))
+        #         print "  Found programmer: Id = '%s'; type = '%s'" % (self.loader, self.programmer_type)
+        #         print "Programmer Version: %s" % self.sw_version
+        #         print "Has auto-increment: %s" % (str(self.auto_increment))
+        #         print "    Has block-mode: %s (size = %d)" % (str(self.block_size > 0), self.block_size)
+        #         print "  Device Signature: %02x %02x %02x" % (ord(self.signature[0]),ord(self.signature[1]),ord(self.signature[2]))
         
         if self.signature != '\x0f\x95\x1e':
             self.avr109.exit_bootloader()

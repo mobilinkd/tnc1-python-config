@@ -14,7 +14,6 @@ class Avr109(object):
         self.sio_writer.write('\033')
         self.sio_writer.flush()
         buf = self.sio_reader.read(10)
-        print buf
     
     def send_address(self, address):
         address /= 2 # convert from byte to word address

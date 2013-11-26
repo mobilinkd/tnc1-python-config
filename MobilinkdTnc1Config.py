@@ -260,7 +260,7 @@ class TncModel(object):
             print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
     
     def readSerial(self, sio):
-        print "reading..."
+        # print "reading..."
         while self.reading:
             try:
                 c = sio.read(1)
@@ -271,7 +271,7 @@ class TncModel(object):
             except ValueError, e:
                 self.app.exception(e)
         
-        print "done reading..."
+        # print "done reading..."
     
     def set_tx_volume(self, volume):
         try:
@@ -352,7 +352,7 @@ class TncModel(object):
         self.set_ptt(self.ptt)
     
     def set_ptt(self, value):
-        print "PTT: %s, Tone=%d" % (str(value), self.tone)
+        # print "PTT: %s, Tone=%d" % (str(value), self.tone)
         
         self.ptt = value
         
@@ -377,6 +377,10 @@ class TncModel(object):
         try:
             bootloader = BootLoader(self.ser, self.ser, filename, gui)
         except Exception, e:
+            self.ser.close()
+            self.ser = None
+            self.sio_reader = None
+            self.sio_writer = None
             gui.failure(str(e))
             return
 
