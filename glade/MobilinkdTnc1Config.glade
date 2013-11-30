@@ -1,6 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <!-- interface-requires gtk+ 3.6 -->
+  <object class="GtkImage" id="bluetooth_icon">
+    <property name="width_request">0</property>
+    <property name="height_request">0</property>
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">images/bluetooth.png</property>
+  </object>
+  <object class="GtkImage" id="dcd_icon">
+    <property name="width_request">0</property>
+    <property name="height_request">0</property>
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">images/dcd.png</property>
+  </object>
+  <object class="GtkMessageDialog" id="error_dialog">
+    <property name="can_focus">False</property>
+    <property name="border_width">5</property>
+    <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="type_hint">dialog</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="buttons">ok</property>
+    <property name="text" translatable="yes">Application Error</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="messagedialog-vbox5">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="messagedialog-action_area5">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkMessageDialog" id="firmware_error_dialog">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
@@ -66,6 +109,16 @@
     <property name="can_focus">False</property>
     <property name="stock">gtk-go-down</property>
   </object>
+  <object class="GtkImage" id="kiss_full_duplex_image">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">images/duplex.png</property>
+  </object>
+  <object class="GtkImage" id="kiss_half_duplex_image">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">images/half-duplex.png</property>
+  </object>
   <object class="GtkWindow" id="window">
     <property name="can_focus">False</property>
     <property name="default_width">640</property>
@@ -105,7 +158,7 @@
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">True</property>
-                        <property name="position">1</property>
+                        <property name="position">0</property>
                       </packing>
                     </child>
                     <child>
@@ -121,7 +174,37 @@
                         <property name="expand">False</property>
                         <property name="fill">True</property>
                         <property name="padding">10</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLevelBar" id="battery_level_bar">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="has_tooltip">True</property>
+                        <property name="tooltip_text" translatable="yes">Battery Level</property>
+                        <property name="margin_left">100</property>
+                        <property name="max_value">5</property>
+                        <property name="mode">discrete</property>
+                      </object>
+                      <packing>
+                        <property name="expand">True</property>
+                        <property name="fill">True</property>
                         <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="battery_label">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">label</property>
+                        <property name="justify">right</property>
+                        <property name="width_chars">8</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">False</property>
+                        <property name="position">3</property>
                       </packing>
                     </child>
                   </object>
@@ -371,10 +454,14 @@ volume from the radio produces better results.</property>
                         <property name="receives_default">True</property>
                         <property name="tooltip_text" translatable="yes">DCD/Squelch - use DCD to inhibit transmit rather than audio signal.  This should only be used when running with an open squelch.</property>
                         <property name="valign">center</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
+                        <property name="image">dcd_icon</property>
+                        <property name="always_show_image">True</property>
                         <signal name="toggled" handler="on_dcd_toggled" swapped="no"/>
                       </object>
                       <packing>
-                        <property name="expand">True</property>
+                        <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="position">0</property>
                       </packing>
@@ -383,6 +470,8 @@ volume from the radio produces better results.</property>
                       <object class="GtkBox" id="kiss_tx_delay_box">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
                         <property name="orientation">vertical</property>
                         <child>
                           <object class="GtkLabel" id="kiss_tx_delay_label">
@@ -420,7 +509,7 @@ volume from the radio produces better results.</property>
                         </child>
                       </object>
                       <packing>
-                        <property name="expand">True</property>
+                        <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="position">1</property>
                       </packing>
@@ -429,6 +518,8 @@ volume from the radio produces better results.</property>
                       <object class="GtkBox" id="kiss_persistence_box">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
                         <property name="orientation">vertical</property>
                         <child>
                           <object class="GtkLabel" id="kiss_persistence_label">
@@ -463,7 +554,7 @@ volume from the radio produces better results.</property>
                         </child>
                       </object>
                       <packing>
-                        <property name="expand">True</property>
+                        <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="position">2</property>
                       </packing>
@@ -472,6 +563,8 @@ volume from the radio produces better results.</property>
                       <object class="GtkBox" id="kiss_slot_time_box">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
                         <property name="orientation">vertical</property>
                         <child>
                           <object class="GtkLabel" id="kiss_slot_time_label">
@@ -509,7 +602,7 @@ volume from the radio produces better results.</property>
                         </child>
                       </object>
                       <packing>
-                        <property name="expand">True</property>
+                        <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="position">3</property>
                       </packing>
@@ -518,6 +611,8 @@ volume from the radio produces better results.</property>
                       <object class="GtkBox" id="kiss_tx_tail_box">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
                         <property name="orientation">vertical</property>
                         <child>
                           <object class="GtkLabel" id="kiss_tx_tail_label">
@@ -553,7 +648,7 @@ volume from the radio produces better results.</property>
                         </child>
                       </object>
                       <packing>
-                        <property name="expand">True</property>
+                        <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="position">4</property>
                       </packing>
@@ -566,11 +661,39 @@ volume from the radio produces better results.</property>
                         <property name="receives_default">True</property>
                         <property name="tooltip_text" translatable="yes">Full Duplex - this should always remain off for APRS.</property>
                         <property name="valign">center</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
+                        <property name="image">kiss_half_duplex_image</property>
+                        <property name="always_show_image">True</property>
+                        <signal name="toggled" handler="on_kiss_duplex_toggled" swapped="no"/>
                       </object>
                       <packing>
-                        <property name="expand">True</property>
+                        <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="position">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkToggleButton" id="conn_track_toggle_button">
+                        <property name="label" translatable="yes">Conn Track</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">True</property>
+                        <property name="tooltip_text" translatable="yes">Track the Bluetooth connection status so that packets are
+not queued when disconnected.  This is useful when running
+a digipeater and you don't want to accidentally digipeat old
+packets received while the TNC was disconnected.</property>
+                        <property name="valign">center</property>
+                        <property name="margin_left">10</property>
+                        <property name="margin_right">10</property>
+                        <property name="image">bluetooth_icon</property>
+                        <property name="always_show_image">True</property>
+                        <signal name="toggled" handler="on_conn_track_toggled" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">False</property>
+                        <property name="position">6</property>
                       </packing>
                     </child>
                   </object>
@@ -606,32 +729,84 @@ volume from the radio produces better results.</property>
                   <object class="GtkBox" id="box2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="orientation">vertical</property>
                     <child>
-                      <object class="GtkFileChooserButton" id="firmware_file_chooser_button">
+                      <object class="GtkBox" id="box9">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="orientation">vertical</property>
-                        <property name="create_folders">False</property>
-                        <signal name="file-set" handler="on_firmware_file_chooser_button_file_set" swapped="no"/>
+                        <child>
+                          <object class="GtkLabel" id="firmware_labe">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="margin_right">10</property>
+                            <property name="label" translatable="yes">Current firmware version</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="firmware_entry">
+                            <property name="visible">True</property>
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">False</property>
+                            <property name="editable">False</property>
+                            <property name="invisible_char">●</property>
+                            <property name="caps_lock_warning">False</property>
+                            <property name="placeholder_text">unknown</property>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
                       </object>
                       <packing>
-                        <property name="expand">True</property>
+                        <property name="expand">False</property>
                         <property name="fill">True</property>
                         <property name="position">0</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="upload_button">
-                        <property name="label" translatable="yes">Upload</property>
+                      <object class="GtkBox" id="box8">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="receives_default">True</property>
-                        <signal name="clicked" handler="on_upload_button_clicked" swapped="no"/>
+                        <property name="can_focus">False</property>
+                        <child>
+                          <object class="GtkFileChooserButton" id="firmware_file_chooser_button">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="orientation">vertical</property>
+                            <property name="create_folders">False</property>
+                            <signal name="file-set" handler="on_firmware_file_chooser_button_file_set" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="upload_button">
+                            <property name="label" translatable="yes">Upload</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">True</property>
+                            <signal name="clicked" handler="on_upload_button_clicked" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">True</property>
-                        <property name="position">1</property>
+                        <property name="position">2</property>
                       </packing>
                     </child>
                   </object>

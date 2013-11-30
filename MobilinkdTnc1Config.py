@@ -10,13 +10,9 @@ from gi.repository import Gtk,GdkPixbuf,GObject,Pango,Gdk
 import serial
 import serial.tools
 import serial.tools.list_ports
-import io
 import glob
-import threading
-import math
-import time
-from StringIO import StringIO
-from BootLoader import BootLoader
+
+from TncModel import TncModel
 
 def comports():
     if os.name == 'posix':
@@ -26,392 +22,6 @@ def comports():
         print [x for x in serial.tools.list_ports.comports()]
         return serial.tools.list_ports.comports()
 
-
-class KissData(object):
-
-    def __init__(self):
-        self.packet_type = None;
-        self.sub_type = None;
-        self.data = None
-        self.ready = False;
-    
-
-class KissDecode(object):
-
-    WAIT_FEND = 1
-    WAIT_PACKET_TYPE = 2
-    WAIT_SUB_TYPE = 3
-    WAIT_DATA = 4
-
-    FEND = 0xC0
-    FESC = 0xDB
-    TFEND = 0xDC
-    TFESC = 0xDD
-
-    def __init__(self):
-        self.state = self.WAIT_FEND
-        self.packet = KissData()
-        self.escape = False
-        self.parser = {
-            self.WAIT_FEND: self.wait_fend,
-            self.WAIT_PACKET_TYPE: self.wait_packet_type,
-            self.WAIT_SUB_TYPE: self.wait_sub_type,
-            self.WAIT_DATA: self.wait_data}
-    
-    def process(self, c):
-        if self.escape:
-            self.escape = False
-            if c == self.TFEND:
-                c = self.FEND
-            elif c == self.TFESC:
-                c = self.FESC
-            else:
-                raise ValueError("Invalid KISS escape sequence received")
-        elif c == self.FESC:
-            self.escape = True
-            return None
-            
-        self.parser[self.state](c)
-        
-        if self.packet is not None and self.packet.ready:
-            return self.packet
-        else:
-            return None
-    
-    def wait_fend(self, c):
-    
-        if c == self.FEND:
-            self.state = self.WAIT_PACKET_TYPE
-            self.packet = KissData()
-    
-    def wait_packet_type(self, c):
-        
-        if c == self.FEND: return # possible dupe
-        if c != 0x06:
-            raise ValueError("Invalid KISS packet type received (%d)" % c)
-        self.packet.packet_type = c
-        self.state = self.WAIT_SUB_TYPE
-    
-    def wait_sub_type(self, c):
-        self.packet.sub_type = c
-        self.packet.data = ""
-        self.state = self.WAIT_DATA
-    
-    def wait_data(self, c):
-        if c == self.FEND:
-            self.packet.ready = True
-            self.state = self.WAIT_FEND
-        else:
-            self.packet.data += chr(c)
-
-class KissEncode(object):
-
-    FEND = 0xC0
-    FESC = 0xDB
-    TFEND = 0xDC
-    TFESC = 0xDD
-
-    def __init__(self):
-        pass
-    
-    def encode(self, data):
-        
-        buf = StringIO()
-        
-        buf.write(chr(self.FEND))
-        
-        for c in [ord(x) for x in data]:
-            if c == self.FEND:
-                buf.write(chr(self.FESC))
-                buf.write(chr(self.TFEND))
-            elif c == self.FESC:
-                buf.write(chr(c))
-                buf.write(chr(self.TFESC))
-            else:
-                buf.write(chr(c))
-
-        buf.write(chr(self.FEND))
-        
-        return buf.getvalue()
-    
-
-class TncModel(object):
-
-    SET_TX_DELAY = "\01%c"
-    GET_TX_DELAY = "\06\041"
-    SET_PERSISTENCE = "\02%c"
-    GET_PERSISTENCE = "\06\042"
-    SET_TIME_SLOT = "\03%c"
-    GET_TIME_SLOT = "\06\043"
-    SET_TX_TAIL = "\04%c"
-    GET_TX_TAIL = "\06\044"
-    SET_DUPLEX = "\05%c"
-    GET_DUPLEX = "\06\045"
-    
-    SET_OUTPUT_VOLUME="\06\01%c"
-    GET_OUTPUT_VOUME="\06\014"
-    SET_INPUT_VOLUME="\06\02%c" # UNUSED
-    GET_INPUT_VOUME="\06\015"   # UNUSED
-    SET_SQUELCH_LEVEL="\06\03%c"
-    
-    POLL_VOLUME="\06\04"        # One value
-    STREAM_VOLUME="\06\05"      # Stream continuously
-
-    SEND_MARK="\06\07"
-    SEND_SPACE="\06\010"
-    SEND_BOTH="\06\011"
-    STOP_TX="\06\012"
-    
-    GET_FIRMWARE_VERSION = "\06\050"
-    
-    TONE_NONE = 0
-    TONE_SPACE = 1
-    TONE_MARK = 2
-    TONE_BOTH = 3
-
-    def __init__(self, app, ser):
-        self.app = app
-        self.serial = ser
-        self.decoder = KissDecode()
-        self.encoder = KissEncode()
-        self.ser = None
-        self.thd = None
-        self.tone = self.TONE_NONE
-        self.ptt = False
-        self.reading = False
-    
-    def __del__(self):
-        self.disconnect()
-
-
-    def connected(self):
-        return self.ser is not None
-        
-    def connect(self):
-        if self.connected(): return
-        
-        try:
-            print "connecting to %s" % self.serial
-            self.ser = serial.Serial(self.serial, 115200, timeout=.1)
-            self.sio_reader = self.ser # io.BufferedReader(self.ser)
-            self.sio_writer = self.ser # io.BufferedWriter(self.ser)
-
-            self.reading = True
-            self.thd = threading.Thread(target=self.readSerial, args=(self.sio_reader,))
-            self.thd.start()
-
-            self.sio_writer.write(self.encoder.encode(self.GET_OUTPUT_VOUME))
-            self.sio_writer.flush()
-            self.app.tnc_connect()
-            time.sleep(1)
-            self.sio_writer.write(self.encoder.encode(self.STOP_TX))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-
-        except Exception, e:
-            self.app.exception(e)
-
-    def reconnect(self):
-        try:
-            self.sio_reader = self.ser
-            self.sio_writer = self.ser
-
-            self.reading = True
-            self.thd = threading.Thread(target=self.readSerial, args=(self.sio_reader,))
-            self.thd.start()
-
-            self.sio_writer.write(self.encoder.encode(self.GET_OUTPUT_VOUME))
-            self.sio_writer.flush()
-            self.app.tnc_connect()
-            time.sleep(1)
-            self.sio_writer.write(self.encoder.encode(self.STOP_TX))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-        
-    
-    def disconnect(self):
-        self.reading = False
-        if self.thd is not None:
-            try:
-                self.sio_writer.write(self.encoder.encode(self.POLL_VOLUME))
-                self.sio_writer.flush()
-                self.thd.join()
-                self.thd = None
-            except Exception, e:
-                self.app.exception(e)
-
-        self.app.tnc_disconnect()
-    
-    def update_rx_volume(self, value):
-        self.app.tnc_rx_volume(value)
-    
-    def handle_packet(self, packet):
-        if packet.sub_type == 4:
-            v = ord(packet.data[0])
-            v = max(v, 1)
-            volume = math.log(v) / math.log(2)
-            self.app.tnc_rx_volume(volume)
-        elif packet.sub_type == 12:
-            volume = ord(packet.data[0])
-            self.app.tnc_tx_volume(volume)
-        else:
-            print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
-    
-    def readSerial(self, sio):
-        # print "reading..."
-        while self.reading:
-            try:
-                c = sio.read(1)
-                if len(c) == 0: continue
-                packet = self.decoder.process(ord(c[0]))
-                if packet is not None:
-                    self.handle_packet(packet)
-            except ValueError, e:
-                self.app.exception(e)
-        
-        # print "done reading..."
-    
-    def set_tx_volume(self, volume):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_OUTPUT_VOLUME % chr(volume)))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-
-    def set_tx_delay(self, delay):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_TX_DELAY % chr(delay)))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-    def set_input_atten(self, value):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_INPUT_VOLUME % chr(2 * value)))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-    def set_squelch_level(self, value):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_SQUELCH_LEVEL % chr(value)))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-
-    def set_persistence(self, p):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_PERSISTENCE % chr(p)))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-    def set_time_slot(self, timeslot):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_TIME_SLOT % chr(timeslot)))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-    def set_tx_tail(self, tail):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_TX_TAIL % chr(tail)))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-    def set_duplex(self, value):
-        try:
-            self.sio_writer.write(self.encoder.encode(self.SET_DUPLEX % chr(value)))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-    def set_mark(self, value):
-        if value:
-            self.tone |= self.TONE_MARK
-        else:
-            self.tone &= self.TONE_SPACE
-        self.set_ptt(self.ptt)
-    
-    def set_space(self, value):
-        if value:
-            self.tone |= self.TONE_SPACE
-        else:
-            self.tone &= self.TONE_MARK
-        self.set_ptt(self.ptt)
-    
-    def set_ptt(self, value):
-        # print "PTT: %s, Tone=%d" % (str(value), self.tone)
-        
-        self.ptt = value
-        
-        try:
-            if value and self.tone != self.TONE_NONE:
-                if self.tone == self.TONE_MARK:
-                    self.sio_writer.write(self.encoder.encode(self.SEND_MARK))
-                elif self.tone == self.TONE_SPACE:
-                    self.sio_writer.write(self.encoder.encode(self.SEND_SPACE))
-                elif self.tone == self.TONE_BOTH:
-                    self.sio_writer.write(self.encoder.encode(self.SEND_BOTH))
-            else:
-                self.sio_writer.write(self.encoder.encode(self.STOP_TX))
-                self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-        
-            self.sio_writer.flush()
-        except Exception, e:
-            self.app.exception(e)
-    
-    def upload_firmware_thd(self, filename, gui):
-
-        try:
-            bootloader = BootLoader(self.ser, self.ser, filename, gui)
-        except Exception, e:
-            self.ser.close()
-            self.ser = None
-            self.sio_reader = None
-            self.sio_writer = None
-            gui.failure(str(e))
-            return
-
-        try:
-            bootloader.load()
-            if not bootloader.verify():
-                bootloader.chip_erase()
-                gui.failure("Firmware verification failed.")
-                return
-            bootloader.exit()
-            self.ser.close()
-            self.ser = None
-            self.sio_reader = None
-            self.sio_writer = None
-            time.sleep(5)
-            gui.success()
-        except Exception, e:
-            bootloader.chip_erase()
-            gui.failure(str(e))
-
-        
-    def upload_firmware(self, filename, gui):
-
-        self.disconnect()
-        self.firmware_thd = threading.Thread(target=self.upload_firmware_thd, args=(filename, gui))
-        self.firmware_thd.start()    
-
-    def upload_firmware_complete(self):
-        
-        self.firmware_thd.join()
-        self.connect()
     
 class MobilinkdTnc1Config(object):
 
@@ -425,14 +35,16 @@ class MobilinkdTnc1Config(object):
         self.window.connect("delete-event", self.close)
         
         self.init_serial_port_combobox()
+        self.init_battery_level()
         self.init_transmit_volume()
         self.init_receive_volume()
         self.init_kiss_parameters()
         self.init_firmware_section()
-        self.tnc_disconnect()
         
         self.status = self.builder.get_object("statusbar")
         self.builder.connect_signals(self)
+
+        self.tnc_disconnect()
 
         self.window.show()
         Gtk.main()
@@ -454,6 +66,13 @@ class MobilinkdTnc1Config(object):
         if text != None:
             self.tnc = TncModel(self, text)
     
+    def init_battery_level(self):
+    
+        self.battery_label = self.builder.get_object("battery_label")
+        self.battery_level_bar = self.builder.get_object("battery_level_bar")
+        self.battery_level_bar.set_value(0.0)
+        self.battery_label.set_text("0mV")
+
     def init_transmit_volume(self):
     
         self.transmit_volume_scale = self.builder.get_object("transmit_volume_scale")
@@ -513,9 +132,18 @@ class MobilinkdTnc1Config(object):
         self.kiss_tx_tail_spin_button.set_increments(1.0, 10.0)
         self.kiss_tx_tail_spin_button.set_value(2)
         self.kiss_duplex_toggle_button = self.builder.get_object("kiss_duplex_toggle_button")
+        self.kiss_full_duplex_image = self.builder.get_object("kiss_full_duplex_image")
+        self.kiss_half_duplex_image = self.builder.get_object("kiss_half_duplex_image")
+        self.conn_track_toggle_button = self.builder.get_object("conn_track_toggle_button")
     
     def on_dcd_toggled(self, widget, data=None):
         self.tnc.set_squelch_level((not widget.get_active()) * 16);
+    
+    def on_kiss_duplex_toggled(self, widget, data=None):
+        self.tnc.set_duplex(widget.get_active());
+    
+    def on_conn_track_toggled(self, widget, data=None):
+        self.tnc.set_conn_track(widget.get_active());
     
     def on_kiss_tx_delay_spin_button_value_changed(self, widget, data=None):
         self.tnc.set_tx_delay(widget.get_value_as_int())
@@ -550,6 +178,7 @@ class MobilinkdTnc1Config(object):
     
         self.firmware_file_chooser_button = self.builder.get_object("firmware_file_chooser_button")
         self.upload_button = self.builder.get_object("upload_button")
+        self.firmware_entry = self.builder.get_object("firmware_entry")
     
     def on_firmware_file_chooser_button_file_set(self, widget, data=None):
         self.firmware_file = self.firmware_file_chooser_button.get_filename()
@@ -581,8 +210,12 @@ class MobilinkdTnc1Config(object):
         self.kiss_duplex_toggle_button.set_sensitive(True)
         self.kiss_duplex_toggle_button.set_active(False)
         
+        self.conn_track_toggle_button.set_sensitive(True)
+        self.conn_track_toggle_button.set_active(False)
+
         self.firmware_file_chooser_button.set_sensitive(True)
         self.upload_button.set_sensitive(False)
+        self.firmware_entry.set_sensitive(True)
         
         
     def tnc_disconnect(self):
@@ -596,9 +229,11 @@ class MobilinkdTnc1Config(object):
         self.kiss_slot_time_spin_button.set_sensitive(False)
         self.kiss_tx_tail_spin_button.set_sensitive(False)
         self.kiss_duplex_toggle_button.set_sensitive(False)
+        self.conn_track_toggle_button.set_sensitive(False)
             
         self.firmware_file_chooser_button.set_sensitive(False)
         self.upload_button.set_sensitive(False)
+        self.firmware_entry.set_sensitive(False)
 
     def tnc_rx_volume(self, value):
         self.receive_volume_levelbar.set_value(value)
@@ -607,14 +242,62 @@ class MobilinkdTnc1Config(object):
     def tnc_tx_volume(self, value):
         self.transmit_volume_scale.set_value(value)
     
+    def tnc_battery_level(self, value):
+        self.battery_label.set_text(str(int(value)) + "mV")
+        level = (value - 3300.0) / 200.0
+        self.battery_level_bar.set_value(level)
+    
     def tnc_input_atten(self, value):
         self.input_atten_toggle_button.set_active(value > 0);
         
+    def tnc_squelch_level(self, value):
+        pass
+    
+    def tnc_tx_delay(self, value):
+        self.kiss_tx_delay_spin_button.set_value(value)
+    
+    def tnc_persistence(self, value):
+        self.kiss_persistence_spin_button.set_value(value)
+    
+    def tnc_slot_time(self, value):
+        self.kiss_slot_time_spin_button.set_value(value)
+    
+    def tnc_tx_tail(self, value):
+        self.kiss_tx_tail_spin_button.set_value(value)
+    
+    def tnc_dcd(self, value):
+        self.dcd_toggle_button.set_active(value == 0)
+    
+    def tnc_duplex(self, value):
+        self.kiss_duplex_toggle_button.set_active(value)
+        return
+        if value:
+            self.kiss_duplex_toggle_button.set_image(self.kiss_full_duplex_image)
+        else:
+            self.kiss_duplex_toggle_button.set_image(self.kiss_half_duplex_image)
+    
+    def tnc_conn_track(self, value):
+        self.conn_track_toggle_button.set_active(value)
+    
+    def tnc_firmware_version(self, value):
+        self.firmware_entry.set_text(value)
+    
     def exception(self, e):
-        self.status.push(1, str(e))
+        context = self.status.get_context_id("exception")
+        self.status.pop(context)
+        self.status.push(context, str(e))
+        dialog = self.builder.get_object("error_dialog")
+        dialog.format_secondary_text(str(e))
+        result = dialog
+
+        # self.status.push(1, str(e))
+        pass
     
     def notice(self, msg):
-        self.status.push(1, msg)
+        context = self.status.get_context_id("notice")
+        self.status.pop(context)
+        self.status.push(context, msg)
+        pass
         
     def check_firmware_upload_complete(self):
         
