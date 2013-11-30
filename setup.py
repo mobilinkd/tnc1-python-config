@@ -77,7 +77,7 @@ else:
     scripts = ['MobilinkdTnc1Config.py']
     executables = None
 
-py_modules = ['Avr109', 'BootLoader', 'IntelHexRecord']
+py_modules = ['Avr109', 'BootLoader', 'IntelHexRecord', 'TncModel']
 
 buildOptions = dict(
     compressed = False,
@@ -88,7 +88,7 @@ buildOptions = dict(
 
 setup(
     name = "MobilinkdTnc1Config",
-    version = "0.3.2",
+    version = "0.4.0",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
