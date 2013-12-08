@@ -96,8 +96,12 @@ class MobilinkdTnc1Config(object):
     def on_input_atten_toggle_button_toggled(self, widget, data=None):
         self.tnc.set_input_atten(widget.get_active())
     
-    def on_transmit_volume_scale_value_changed(self, widget, data=None):
-        self.tnc.set_tx_volume(int(widget.get_value()))
+    def on_transmit_volume_scale_change_value(self, widget, scroll, value, data=None):
+        if value > 255: value = 255
+        if value < 0: value = 0
+        widget.set_value(int(value))
+        self.tnc.set_tx_volume(int(value))
+        return True
 
     def init_receive_volume(self):
         self.receive_volume_levelbar = self.builder.get_object("receive_volume_levelbar")
@@ -135,9 +139,13 @@ class MobilinkdTnc1Config(object):
         self.kiss_full_duplex_image = self.builder.get_object("kiss_full_duplex_image")
         self.kiss_half_duplex_image = self.builder.get_object("kiss_half_duplex_image")
         self.conn_track_toggle_button = self.builder.get_object("conn_track_toggle_button")
+        self.verbose_toggle_button = self.builder.get_object("verbose_toggle_button")
     
     def on_dcd_toggled(self, widget, data=None):
-        self.tnc.set_squelch_level((not widget.get_active()) * 16);
+        self.tnc.set_squelch_level((not widget.get_active()) * 2);
+    
+    def on_verbose_toggled(self, widget, data=None):
+        self.tnc.set_verbosity(widget.get_active());
     
     def on_kiss_duplex_toggled(self, widget, data=None):
         self.tnc.set_duplex(widget.get_active());
@@ -198,8 +206,11 @@ class MobilinkdTnc1Config(object):
         self.ptt_toggle_button.set_sensitive(True)
         self.ptt_toggle_button.set_active(False)
         
-        self.dcd_toggle_button.set_sensitive(True)
+        self.dcd_toggle_button.set_sensitive(False)
         self.dcd_toggle_button.set_active(False)
+        
+        self.verbose_toggle_button.set_sensitive(False)
+        self.verbose_toggle_button.set_active(False)
         
         self.kiss_tx_delay_spin_button.set_sensitive(True)
         
@@ -207,10 +218,10 @@ class MobilinkdTnc1Config(object):
         self.kiss_slot_time_spin_button.set_sensitive(True)
         self.kiss_tx_tail_spin_button.set_sensitive(True)
         
-        self.kiss_duplex_toggle_button.set_sensitive(True)
+        self.kiss_duplex_toggle_button.set_sensitive(False)
         self.kiss_duplex_toggle_button.set_active(False)
         
-        self.conn_track_toggle_button.set_sensitive(True)
+        self.conn_track_toggle_button.set_sensitive(False)
         self.conn_track_toggle_button.set_active(False)
 
         self.firmware_file_chooser_button.set_sensitive(True)
@@ -266,9 +277,15 @@ class MobilinkdTnc1Config(object):
         self.kiss_tx_tail_spin_button.set_value(value)
     
     def tnc_dcd(self, value):
+        self.dcd_toggle_button.set_sensitive(True)
         self.dcd_toggle_button.set_active(value == 0)
     
+    def tnc_verbose(self, value):
+        self.verbose_toggle_button.set_sensitive(True)
+        self.verbose_toggle_button.set_active(value)
+    
     def tnc_duplex(self, value):
+        self.kiss_duplex_toggle_button.set_sensitive(True)
         self.kiss_duplex_toggle_button.set_active(value)
         return
         if value:
@@ -286,12 +303,10 @@ class MobilinkdTnc1Config(object):
         context = self.status.get_context_id("exception")
         self.status.pop(context)
         self.status.push(context, str(e))
-        dialog = self.builder.get_object("error_dialog")
-        dialog.format_secondary_text(str(e))
-        result = dialog
-
-        # self.status.push(1, str(e))
-        pass
+        # dialog = self.builder.get_object("error_dialog")
+        # dialog.format_secondary_text(str(e))
+        # dialog.run()
+        # dialog.hide()
     
     def notice(self, msg):
         context = self.status.get_context_id("notice")
@@ -375,7 +390,7 @@ class FirmwareUploadGui(object):
         
         self.result.run()
         self.result.hide()
-        self.success_dialog.hide()
+        # self.success_dialog.hide()
 
 
 if __name__ == '__main__':

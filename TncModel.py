@@ -132,9 +132,9 @@ class TncModel(object):
     SET_OUTPUT_VOLUME="\06\01%c"
     GET_OUTPUT_VOUME="\06\014"
     SET_INPUT_VOLUME="\06\02%c" # UNUSED
-    GET_INPUT_VOUME="\06\015"   # UNUSED
+    GET_INPUT_ATTEN="\06\015"   # UNUSED
     SET_SQUELCH_LEVEL="\06\03%c"
-    GET_ALL_VALUES="\06\177"   # Get all settings and versions
+    GET_ALL_VALUES="\06\177"    # Get all settings and versions
     
     POLL_VOLUME="\06\04"        # One value
     STREAM_VOLUME="\06\05"      # Stream continuously
@@ -146,6 +146,9 @@ class TncModel(object):
     
     GET_FIRMWARE_VERSION = "\06\050"
     SET_BT_CONN_TRACK = "\06\105%c"
+    
+    SET_VERBOSITY = "\06\020%c";
+    GET_VERBOSITY = "\06\021";
     
     TONE_NONE = 0
     TONE_SPACE = 1
@@ -163,6 +166,7 @@ class TncModel(object):
     HANDLE_TX_VOLUME = 12
     HANDLE_INPUT_ATTEN = 13
     HANDLE_SQUELCH_LEVEL = 14
+    HANDLE_VERBOSITY = 17
     
     HANDLE_FIRMWARE_VERSION = 40
     HANDLE_HARDWARE_VERSION = 41
@@ -272,6 +276,8 @@ class TncModel(object):
             self.handle_bluetooth_name(packet)
         elif packet.sub_type == self.HANDLE_CONNECTION_TRACKING:
             self.handle_bluetooth_connection_tracking(packet)
+        elif packet.sub_type == self.HANDLE_VERBOSITY:
+            self.handle_verbosity(packet)
         else:
             print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
             print "data:", packet.data
@@ -346,10 +352,12 @@ class TncModel(object):
     def handle_bluetooth_connection_tracking(self, packet):
         self.app.tnc_conn_track(ord(packet.data[0]))
     
+    def handle_verbosity(self, packet):
+        self.app.tnc_verbose(ord(packet.data[0]))
+    
     def set_tx_volume(self, volume):
         try:
             self.sio_writer.write(self.encoder.encode(self.SET_OUTPUT_VOLUME % chr(volume)))
-            self.sio_writer.write(self.encoder.encode(self.GET_ALL_VALUES))
             self.sio_writer.flush()
         except Exception, e:
             self.app.exception(e)
@@ -414,6 +422,14 @@ class TncModel(object):
     def set_conn_track(self, value):
         try:
             self.sio_writer.write(self.encoder.encode(self.SET_BT_CONN_TRACK % chr(value)))
+            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+            self.sio_writer.flush()
+        except Exception, e:
+            self.app.exception(e)
+    
+    def set_verbosity(self, value):
+        try:
+            self.sio_writer.write(self.encoder.encode(self.SET_VERBOSITY % chr(value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
         except Exception, e:

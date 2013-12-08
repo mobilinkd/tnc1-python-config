@@ -15,13 +15,20 @@
     <property name="can_focus">False</property>
     <property name="pixbuf">images/dcd.png</property>
   </object>
+  <object class="GtkImage" id="dcd_icon1">
+    <property name="width_request">0</property>
+    <property name="height_request">0</property>
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">images/dcd.png</property>
+  </object>
   <object class="GtkMessageDialog" id="error_dialog">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
     <property name="modal">True</property>
     <property name="destroy_with_parent">True</property>
     <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
+    <property name="urgency_hint">True</property>
     <property name="buttons">ok</property>
     <property name="text" translatable="yes">Application Error</property>
     <child internal-child="vbox">
@@ -47,8 +54,10 @@
   <object class="GtkMessageDialog" id="firmware_error_dialog">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
+    <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
     <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
+    <property name="urgency_hint">True</property>
     <property name="message_type">warning</property>
     <property name="buttons">ok</property>
     <property name="text" translatable="yes">Firmware Upload Failed</property>
@@ -80,8 +89,10 @@
   <object class="GtkMessageDialog" id="firmware_success_dialog">
     <property name="can_focus">False</property>
     <property name="border_width">5</property>
+    <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
     <property name="type_hint">dialog</property>
-    <property name="skip_taskbar_hint">True</property>
+    <property name="urgency_hint">True</property>
     <property name="buttons">ok</property>
     <property name="text" translatable="yes">Firmware Upload Succeeded</property>
     <child internal-child="vbox">
@@ -308,7 +319,7 @@
                         <property name="round_digits">0</property>
                         <property name="digits">0</property>
                         <property name="value_pos">left</property>
-                        <signal name="value-changed" handler="on_transmit_volume_scale_value_changed" swapped="no"/>
+                        <signal name="change-value" handler="on_transmit_volume_scale_change_value" swapped="no"/>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -447,26 +458,6 @@ volume from the radio produces better results.</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="GtkToggleButton" id="dcd_toggle_button">
-                        <property name="label" translatable="yes">DCD</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="receives_default">True</property>
-                        <property name="tooltip_text" translatable="yes">DCD/Squelch - use DCD to inhibit transmit rather than audio signal.  This should only be used when running with an open squelch.</property>
-                        <property name="valign">center</property>
-                        <property name="margin_left">10</property>
-                        <property name="margin_right">10</property>
-                        <property name="image">dcd_icon</property>
-                        <property name="always_show_image">True</property>
-                        <signal name="toggled" handler="on_dcd_toggled" swapped="no"/>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">False</property>
-                        <property name="position">0</property>
-                      </packing>
-                    </child>
-                    <child>
                       <object class="GtkBox" id="kiss_tx_delay_box">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -511,7 +502,7 @@ volume from the radio produces better results.</property>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">1</property>
+                        <property name="position">0</property>
                       </packing>
                     </child>
                     <child>
@@ -544,6 +535,7 @@ volume from the radio produces better results.</property>
                             <property name="xalign">0.5</property>
                             <property name="invisible_char_set">True</property>
                             <property name="orientation">vertical</property>
+                            <property name="numeric">True</property>
                             <signal name="value-changed" handler="on_kiss_persistence_spin_button_value_changed" swapped="no"/>
                           </object>
                           <packing>
@@ -556,7 +548,7 @@ volume from the radio produces better results.</property>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">2</property>
+                        <property name="position">1</property>
                       </packing>
                     </child>
                     <child>
@@ -604,7 +596,7 @@ volume from the radio produces better results.</property>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
-                        <property name="position">3</property>
+                        <property name="position">2</property>
                       </packing>
                     </child>
                     <child>
@@ -638,6 +630,7 @@ volume from the radio produces better results.</property>
                             <property name="invisible_char_set">True</property>
                             <property name="input_purpose">number</property>
                             <property name="orientation">vertical</property>
+                            <property name="numeric">True</property>
                             <signal name="value-changed" handler="on_kiss_tx_tail_spin_button_value_changed" swapped="no"/>
                           </object>
                           <packing>
@@ -650,50 +643,130 @@ volume from the radio produces better results.</property>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
+                        <property name="position">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkBox" id="box10">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="orientation">vertical</property>
+                        <child>
+                          <object class="GtkToggleButton" id="dcd_toggle_button">
+                            <property name="label" translatable="yes">DCD</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">True</property>
+                            <property name="has_tooltip">True</property>
+                            <property name="tooltip_markup" translatable="yes">DCD/Squelch - use DCD to inhibit transmit rather than audio signal.  This should only be used when running with an open squelch.</property>
+                            <property name="tooltip_text" translatable="yes">DCD/Squelch - use DCD to inhibit transmit rather than audio signal.  This should only be used when running with an open squelch.</property>
+                            <property name="valign">center</property>
+                            <property name="margin_left">10</property>
+                            <property name="margin_right">10</property>
+                            <property name="image">dcd_icon</property>
+                            <property name="always_show_image">True</property>
+                            <signal name="toggled" handler="on_dcd_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkToggleButton" id="kiss_duplex_toggle_button">
+                            <property name="label" translatable="yes">Duplex</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">True</property>
+                            <property name="has_tooltip">True</property>
+                            <property name="tooltip_markup" translatable="yes">Full Duplex - this should always remain off for APRS.</property>
+                            <property name="tooltip_text" translatable="yes">Full Duplex - this should always remain off for APRS.</property>
+                            <property name="valign">center</property>
+                            <property name="margin_left">10</property>
+                            <property name="margin_right">10</property>
+                            <property name="image">kiss_half_duplex_image</property>
+                            <property name="always_show_image">True</property>
+                            <signal name="toggled" handler="on_kiss_duplex_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
                         <property name="position">4</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkToggleButton" id="kiss_duplex_toggle_button">
-                        <property name="label" translatable="yes">Duplex</property>
+                      <object class="GtkBox" id="box11">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="receives_default">True</property>
-                        <property name="tooltip_text" translatable="yes">Full Duplex - this should always remain off for APRS.</property>
-                        <property name="valign">center</property>
-                        <property name="margin_left">10</property>
-                        <property name="margin_right">10</property>
-                        <property name="image">kiss_half_duplex_image</property>
-                        <property name="always_show_image">True</property>
-                        <signal name="toggled" handler="on_kiss_duplex_toggled" swapped="no"/>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">False</property>
-                        <property name="position">5</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkToggleButton" id="conn_track_toggle_button">
-                        <property name="label" translatable="yes">Conn Track</property>
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="receives_default">True</property>
-                        <property name="tooltip_text" translatable="yes">Track the Bluetooth connection status so that packets are
+                        <property name="can_focus">False</property>
+                        <property name="orientation">vertical</property>
+                        <child>
+                          <object class="GtkToggleButton" id="conn_track_toggle_button">
+                            <property name="label" translatable="yes">Conn Track</property>
+                            <property name="visible">True</property>
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">True</property>
+                            <property name="has_tooltip">True</property>
+                            <property name="tooltip_markup" translatable="yes">Track the Bluetooth connection status so that packets are
+not queued when disconnected.  This is useful when running
+a digipeater and you don&amp;apos;t want to accidentally digipeat old
+packets received while the TNC was disconnected.</property>
+                            <property name="tooltip_text" translatable="yes">Track the Bluetooth connection status so that packets are
 not queued when disconnected.  This is useful when running
 a digipeater and you don't want to accidentally digipeat old
 packets received while the TNC was disconnected.</property>
-                        <property name="valign">center</property>
-                        <property name="margin_left">10</property>
-                        <property name="margin_right">10</property>
-                        <property name="image">bluetooth_icon</property>
-                        <property name="always_show_image">True</property>
-                        <signal name="toggled" handler="on_conn_track_toggled" swapped="no"/>
+                            <property name="valign">center</property>
+                            <property name="margin_left">10</property>
+                            <property name="margin_right">10</property>
+                            <property name="image">bluetooth_icon</property>
+                            <property name="always_show_image">True</property>
+                            <signal name="toggled" handler="on_conn_track_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkToggleButton" id="verbose_toggle_button">
+                            <property name="label">gtk-info</property>
+                            <property name="visible">True</property>
+                            <property name="sensitive">False</property>
+                            <property name="can_focus">False</property>
+                            <property name="receives_default">True</property>
+                            <property name="has_tooltip">True</property>
+                            <property name="tooltip_text" translatable="yes">Report out of band messages about things
+like packet errors.  This is useful for diagnosing RX
+problems.  But it may also cause the TNC to miss some
+packets and may interfere with some APRS/packet
+software.  It should normally be turned off.</property>
+                            <property name="valign">center</property>
+                            <property name="margin_left">10</property>
+                            <property name="margin_right">10</property>
+                            <property name="use_stock">True</property>
+                            <property name="always_show_image">True</property>
+                            <signal name="toggled" handler="on_verbose_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
-                        <property name="fill">False</property>
-                        <property name="position">6</property>
+                        <property name="fill">True</property>
+                        <property name="position">5</property>
                       </packing>
                     </child>
                   </object>
