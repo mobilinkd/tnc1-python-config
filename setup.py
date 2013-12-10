@@ -88,7 +88,7 @@ buildOptions = dict(
 
 setup(
     name = "MobilinkdTnc1Config",
-    version = "0.4.0",
+    version = "0.4.1",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
@@ -106,5 +106,12 @@ connected to the computer and assigned a serial port.""",
     requires = ['pyserial', 'pygobject3'],
     executables = executables,
     scripts = scripts,
-    py_modules = py_modules
+    py_modules = py_modules,
+    data_files = [
+        ('share/MobilinkdTnc1Config/glade', ['glade/MobilinkdTnc1Config.glade']),
+        ('share/MobilinkdTnc1Config/glade/images', [
+            'glade/images/bluetooth.png', 
+            'glade/images/dcd.png', 
+            'glade/images/duplex.png', 
+            'glade/images/half-duplex.png'])]
 )

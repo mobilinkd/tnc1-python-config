@@ -22,14 +22,25 @@ def comports():
         print [x for x in serial.tools.list_ports.comports()]
         return serial.tools.list_ports.comports()
 
+def glade_location():
+
+    bin_path = os.path.abspath(os.path.dirname(sys.argv[0]))
+
+    if bin_path in ["/usr/bin", "/bin"]:
+        share_path = '/usr/share/MobilinkdTnc1Config'
+    else:
+        share_path = bin_path
     
+    return share_path
+
 class MobilinkdTnc1Config(object):
 
     def __init__(self):
         self.tnc = None
         self.connect_message = None
         self.builder = Gtk.Builder()
-        self.builder.add_from_file("glade/MobilinkdTnc1Config.glade")
+        self.builder.add_from_file(
+            os.path.join(glade_location(), "glade/MobilinkdTnc1Config.glade"))
         
         self.window = self.builder.get_object("window")
         self.window.connect("delete-event", self.close)
