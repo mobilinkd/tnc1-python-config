@@ -305,6 +305,7 @@ class MobilinkdTnc1Config(object):
             self.kiss_duplex_toggle_button.set_image(self.kiss_half_duplex_image)
     
     def tnc_conn_track(self, value):
+        self.conn_track_toggle_button.set_sensitive(True)
         self.conn_track_toggle_button.set_active(value)
     
     def tnc_firmware_version(self, value):

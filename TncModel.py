@@ -172,6 +172,7 @@ class TncModel(object):
     HANDLE_HARDWARE_VERSION = 41
     HANDLE_BLUETOOTH_NAME = 66
     HANDLE_CONNECTION_TRACKING = 70
+    HANDLE_CAPABILITIES = 126
     
 
     def __init__(self, app, ser):
@@ -197,6 +198,8 @@ class TncModel(object):
         try:
             print "connecting to %s" % self.serial
             self.ser = serial.Serial(self.serial, 115200, timeout=.1)
+            print "connected"
+            time.sleep(1)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)
             self.sio_writer = self.ser # io.BufferedWriter(self.ser)
             self.app.tnc_connect()
@@ -278,6 +281,8 @@ class TncModel(object):
             self.handle_bluetooth_connection_tracking(packet)
         elif packet.sub_type == self.HANDLE_VERBOSITY:
             self.handle_verbosity(packet)
+        elif packet.sub_type == self.HANDLE_CAPABILITIES:
+            self.handle_capabilities(packet)
         else:
             print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
             print "data:", packet.data
@@ -354,6 +359,10 @@ class TncModel(object):
     
     def handle_verbosity(self, packet):
         self.app.tnc_verbose(ord(packet.data[0]))
+        
+    def handle_capabilities(self, packet):
+        # print ord(packet.data[0])
+        pass
     
     def set_tx_volume(self, volume):
         try:
