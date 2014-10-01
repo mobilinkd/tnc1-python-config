@@ -38,6 +38,7 @@ class KissDecode(object):
             self.WAIT_PACKET_TYPE: self.wait_packet_type,
             self.WAIT_SUB_TYPE: self.wait_sub_type,
             self.WAIT_DATA: self.wait_data}
+        self.tmp = ""
     
     def process(self, c):
         if self.escape:
@@ -46,7 +47,9 @@ class KissDecode(object):
             elif c == self.TFESC:
                 c = self.FESC
             else:
-                raise ValueError("Invalid KISS escape sequence received")
+                # Bogus sequence
+                self.escape = False
+                return None
         elif c == self.FESC:
             self.escape = True
             return None
@@ -64,12 +67,17 @@ class KissDecode(object):
         if c == self.FEND:
             self.state = self.WAIT_PACKET_TYPE
             self.packet = KissData()
+            # print self.tmp
+            self.tmp = ""
+        else:
+            self.tmp += chr(c)
     
     def wait_packet_type(self, c, escape):
         
         if not escape and c == self.FEND: return # possible dupe
         if c != 0x06:
-            raise ValueError("Invalid KISS packet type received (%d)" % c)
+            # raise ValueError("Invalid KISS packet type received (%d)" % c)
+            pass
         self.packet.packet_type = c
         self.state = self.WAIT_SUB_TYPE
     
@@ -197,9 +205,9 @@ class TncModel(object):
         
         try:
             print "connecting to %s" % self.serial
-            self.ser = serial.Serial(self.serial, 115200, timeout=.1)
+            self.ser = serial.Serial(self.serial, 38400, timeout=.1)
             print "connected"
-            time.sleep(1)
+            time.sleep(5)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)
             self.sio_writer = self.ser # io.BufferedWriter(self.ser)
             self.app.tnc_connect()
@@ -209,7 +217,11 @@ class TncModel(object):
             self.thd.start()
             
             self.sio_writer.write(self.encoder.encode(self.STOP_TX))
+            self.sio_writer.flush()
+            time.sleep(1)
             self.sio_writer.write(self.encoder.encode(self.GET_ALL_VALUES))
+            self.sio_writer.flush()
+            time.sleep(1)
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
 
@@ -251,6 +263,9 @@ class TncModel(object):
         self.app.tnc_rx_volume(value)
     
     def handle_packet(self, packet):
+        # print packet, packet.data
+        if packet.packet_type != 0x06:
+            return
         if packet.sub_type == self.HANDLE_RX_VOLUME:
             self.handle_rx_volume(packet)
         elif packet.sub_type == self.HANDLE_TX_VOLUME:
@@ -284,8 +299,9 @@ class TncModel(object):
         elif packet.sub_type == self.HANDLE_CAPABILITIES:
             self.handle_capabilities(packet)
         else:
-            print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
-            print "data:", packet.data
+            # print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
+            # print "data:", packet.data
+            pass
     
     def readSerial(self, sio):
         # print "reading..."

@@ -7,8 +7,6 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk,GdkPixbuf,GObject,Pango,Gdk
 
-import serial
-import serial.tools
 import serial.tools.list_ports
 import glob
 
