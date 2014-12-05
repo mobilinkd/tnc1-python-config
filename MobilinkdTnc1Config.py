@@ -44,11 +44,12 @@ class MobilinkdTnc1Config(object):
         self.window.connect("delete-event", self.close)
         
         self.init_serial_port_combobox()
-        self.init_battery_level()
+        self.init_power_section()
         self.init_transmit_volume()
         self.init_receive_volume()
         self.init_kiss_parameters()
         self.init_firmware_section()
+        self.init_eeprom_section()
         
         self.status = self.builder.get_object("statusbar")
         self.builder.connect_signals(self)
@@ -75,13 +76,23 @@ class MobilinkdTnc1Config(object):
         if text != None:
             self.tnc = TncModel(self, text)
     
-    def init_battery_level(self):
-    
-        self.battery_label = self.builder.get_object("battery_label")
+    def init_power_section(self):
+        self.battery_level_label = self.builder.get_object("battery_level_label")
         self.battery_level_bar = self.builder.get_object("battery_level_bar")
         self.battery_level_bar.set_value(0.0)
-        self.battery_label.set_text("0mV")
-
+     
+        self.power_control_box = self.builder.get_object("power_control_box")
+        self.usb_on_button = self.builder.get_object("usb_on_button")
+        self.usb_off_button = self.builder.get_object("usb_off_button")
+        self.usb_on_button.set_sensitive(False)
+        self.usb_off_button.set_sensitive(False)
+    
+    def init_eeprom_section(self):
+        self.eeprom_frame = self.builder.get_object("eeprom_frame")
+        self.eeprom_save_button = self.builder.get_object("eeprom_save_button")
+        self.eeprom_save_button.set_sensitive(False)
+        self.eeprom_frame.set_visible(False)
+    
     def init_transmit_volume(self):
     
         self.transmit_volume_scale = self.builder.get_object("transmit_volume_scale")
@@ -149,18 +160,25 @@ class MobilinkdTnc1Config(object):
         self.kiss_half_duplex_image = self.builder.get_object("kiss_half_duplex_image")
         self.conn_track_toggle_button = self.builder.get_object("conn_track_toggle_button")
         self.verbose_toggle_button = self.builder.get_object("verbose_toggle_button")
+        self.ptt_label = self.builder.get_object("ptt_label")
+        self.ptt_simplex_radiobutton = self.builder.get_object("ptt_simplex_radiobutton")
+        self.ptt_multiplex_radiobutton = self.builder.get_object("ptt_multiplex_radiobutton")
     
     def on_dcd_toggled(self, widget, data=None):
-        self.tnc.set_squelch_level((not widget.get_active()) * 2);
+        self.tnc.set_squelch_level((not widget.get_active()) * 2)
+    
+    def on_ptt_toggled(self, widget, data=None):
+        if widget.get_active():
+            self.tnc.set_ptt_channel(self.ptt_multiplex_radiobutton.get_active())
     
     def on_verbose_toggled(self, widget, data=None):
-        self.tnc.set_verbosity(widget.get_active());
+        self.tnc.set_verbosity(widget.get_active())
     
     def on_kiss_duplex_toggled(self, widget, data=None):
-        self.tnc.set_duplex(widget.get_active());
+        self.tnc.set_duplex(widget.get_active())
     
     def on_conn_track_toggled(self, widget, data=None):
-        self.tnc.set_conn_track(widget.get_active());
+        self.tnc.set_conn_track(widget.get_active())
     
     def on_kiss_tx_delay_spin_button_value_changed(self, widget, data=None):
         self.tnc.set_tx_delay(widget.get_value_as_int())
@@ -201,6 +219,15 @@ class MobilinkdTnc1Config(object):
         self.firmware_file = self.firmware_file_chooser_button.get_filename()
         self.upload_button.set_sensitive(True)
         
+    def on_eeprom_save_button_clicked(self, widget, data=None):
+        self.tnc.save_eeprom_settings()
+    
+    def on_usb_on_button_toggled(self, widget, data=None):
+        self.tnc.set_usb_on(widget.get_active())
+    
+    def on_usb_off_button_toggled(self, widget, data=None):
+        self.tnc.set_usb_off(widget.get_active())
+    
     def on_upload_button_clicked(self, widget, data=None):
         self.firmware_gui = FirmwareUploadGui(self.builder, self.tnc)
         self.tnc.upload_firmware(self.firmware_file, self.firmware_gui)
@@ -243,6 +270,9 @@ class MobilinkdTnc1Config(object):
         self.mark_toggle_button.set_sensitive(False)
         self.space_toggle_button.set_sensitive(False)
         self.ptt_toggle_button.set_sensitive(False)
+        self.ptt_simplex_radiobutton.set_sensitive(False)
+        self.ptt_multiplex_radiobutton.set_sensitive(False)
+        
         self.dcd_toggle_button.set_sensitive(False)
         self.kiss_tx_delay_spin_button.set_sensitive(False)
         self.kiss_persistence_spin_button.set_sensitive(False)
@@ -254,6 +284,9 @@ class MobilinkdTnc1Config(object):
         self.firmware_file_chooser_button.set_sensitive(False)
         self.upload_button.set_sensitive(False)
         self.firmware_entry.set_sensitive(False)
+        
+        self.usb_on_button.set_sensitive(False)
+        self.usb_off_button.set_sensitive(False)
 
     def tnc_rx_volume(self, value):
         self.receive_volume_levelbar.set_value(value)
@@ -263,10 +296,18 @@ class MobilinkdTnc1Config(object):
         self.transmit_volume_scale.set_value(value)
     
     def tnc_battery_level(self, value):
-        self.battery_label.set_text(str(int(value)) + "mV")
+        self.battery_level_label.set_text(str(int(value)) + "mV")
         level = (value - 3300.0) / 200.0
         self.battery_level_bar.set_value(level)
     
+    def tnc_power_on(self, value):
+        self.usb_on_button.set_sensitive(True)
+        self.usb_on_button.set_active(value)
+
+    def tnc_power_off(self, value):
+        self.usb_off_button.set_sensitive(True)
+        self.usb_off_button.set_active(value)
+
     def tnc_input_atten(self, value):
         self.input_atten_toggle_button.set_active(value > 0);
         
@@ -306,8 +347,29 @@ class MobilinkdTnc1Config(object):
         self.conn_track_toggle_button.set_sensitive(True)
         self.conn_track_toggle_button.set_active(value)
     
+    def tnc_eeprom_save(self):
+        self.eeprom_frame.set_visible(True)
+        self.eeprom_save_button.set_sensitive(True)
+    
     def tnc_firmware_version(self, value):
         self.firmware_entry.set_text(value)
+
+    def tnc_ptt_style(self, value):
+        
+        self.ptt_label.set_visible(True)
+        self.ptt_simplex_radiobutton.set_visible(True)
+        self.ptt_multiplex_radiobutton.set_visible(True)
+        
+        self.ptt_simplex_radiobutton.set_sensitive(True)
+        self.ptt_simplex_radiobutton.set_active(False)
+        
+        self.ptt_multiplex_radiobutton.set_sensitive(True)
+        self.ptt_multiplex_radiobutton.set_active(False)
+        
+        if value == 0:
+            self.ptt_simplex_radiobutton.set_active(True)
+        else:
+            self.ptt_multiplex_radiobutton.set_active(True)
     
     def exception(self, e):
         context = self.status.get_context_id("exception")

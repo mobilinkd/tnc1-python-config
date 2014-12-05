@@ -154,9 +154,16 @@ class TncModel(object):
     
     GET_FIRMWARE_VERSION = "\06\050"
     SET_BT_CONN_TRACK = "\06\105%c"
+    SAVE_EEPROM_SETTINGS = "\06\052"
+    
+    SET_USB_POWER_ON = "\06\111%c"
+    SET_USB_POWER_OFF = "\06\113%c"
     
     SET_VERBOSITY = "\06\020%c";
     GET_VERBOSITY = "\06\021";
+    
+    SET_PTT_CHANNEL = "\06\117%c";
+    GET_PTT_CHANNEL = "\06\120";
     
     TONE_NONE = 0
     TONE_SPACE = 1
@@ -180,8 +187,14 @@ class TncModel(object):
     HANDLE_HARDWARE_VERSION = 41
     HANDLE_BLUETOOTH_NAME = 66
     HANDLE_CONNECTION_TRACKING = 70
+    HANDLE_USB_POWER_ON = 74
+    HANDLE_USB_POWER_OFF = 76
     HANDLE_CAPABILITIES = 126
     
+    HANDLE_PTT_CHANNEL = 80
+    
+    CAP_EEPROM_SAVE = 0x0200
+
 
     def __init__(self, app, ser):
         self.app = app
@@ -298,6 +311,12 @@ class TncModel(object):
             self.handle_verbosity(packet)
         elif packet.sub_type == self.HANDLE_CAPABILITIES:
             self.handle_capabilities(packet)
+        elif packet.sub_type == self.HANDLE_PTT_CHANNEL:
+            self.handle_ptt_channel(packet)
+        elif packet.sub_type == self.HANDLE_USB_POWER_ON:
+            self.handle_usb_power_on(packet)
+        elif packet.sub_type == self.HANDLE_USB_POWER_OFF:
+            self.handle_usb_power_off(packet)
         else:
             # print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
             # print "data:", packet.data
@@ -376,9 +395,22 @@ class TncModel(object):
     def handle_verbosity(self, packet):
         self.app.tnc_verbose(ord(packet.data[0]))
         
+    def handle_ptt_channel(self, packet):
+        self.app.tnc_ptt_style(ord(packet.data[0]))
+        
+    def handle_usb_power_on(self, packet):
+        self.app.tnc_power_on(ord(packet.data[0]))
+        
+    def handle_usb_power_off(self, packet):
+        self.app.tnc_power_off(ord(packet.data[0]))
+        
     def handle_capabilities(self, packet):
         # print ord(packet.data[0])
-        pass
+        if len(packet.data) < 2:
+            return
+        value = ord(packet.data[1])
+        if (value << 8) & self.CAP_EEPROM_SAVE:
+            self.app.tnc_eeprom_save()
     
     def set_tx_volume(self, volume):
         try:
@@ -455,6 +487,41 @@ class TncModel(object):
     def set_verbosity(self, value):
         try:
             self.sio_writer.write(self.encoder.encode(self.SET_VERBOSITY % chr(value)))
+            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+            self.sio_writer.flush()
+        except Exception, e:
+            self.app.exception(e)
+    
+    def set_usb_on(self, value):
+        try:
+            self.sio_writer.write(self.encoder.encode(self.SET_USB_POWER_ON % chr(value)))
+            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+            self.sio_writer.flush()
+        except Exception, e:
+            self.app.exception(e)
+        
+    def set_usb_off(self, value):
+        try:
+            self.sio_writer.write(self.encoder.encode(self.SET_USB_POWER_OFF % chr(value)))
+            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+            self.sio_writer.flush()
+        except Exception, e:
+            self.app.exception(e)
+        
+    
+    def save_eeprom_settings(self):
+        try:
+            self.sio_writer.write(self.encoder.encode(self.SAVE_EEPROM_SETTINGS))
+            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+            self.sio_writer.flush()
+        except Exception, e:
+            self.app.exception(e)
+
+    def set_ptt_channel(self, value):
+        
+        try:
+            self.sio_writer.write(self.encoder.encode(self.SET_PTT_CHANNEL % chr(int(value))))
+            self.sio_writer.write(self.encoder.encode(self.GET_PTT_CHANNEL))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
         except Exception, e:

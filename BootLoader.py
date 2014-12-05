@@ -115,8 +115,10 @@ class BootLoader(object):
     
     def chip_erase(self):
         
+        self.avr109.enter_program_mode()
         self.avr109.chip_erase()
-    
+        self.avr109.leave_program_mode()
+   
     def set_address(self, address):
         
         # print "Setting address %x" % address
@@ -128,6 +130,7 @@ class BootLoader(object):
             self.gui.writing()
             
         try:
+            self.avr109.enter_program_mode()
             for segment in self.firmware:
                 self.set_address(segment.address)
                 pos = 0
@@ -142,8 +145,11 @@ class BootLoader(object):
 
         except Exception, e:
             # app.exception(e)
-            self.chip_erase()
+            self.avr109.chip_erase()
             print e
+
+        finally:
+            self.avr109.leave_program_mode()
 
 
     def verify(self):
