@@ -88,18 +88,18 @@ buildOptions = dict(
 
 setup(
     name = "MobilinkdTnc1Config",
-    version = "0.4.2",
+    version = "0.6.0",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
     license = "Apache 2.0",
-    description = "Configuration tool for Mobilinkd TNC1",
+    description = "Configuration tool for Mobilinkd TNC1 and TNC2",
     long_description = 
-"""This program is used to connect to the Mobilinkd TNC1 via RFCOMM (serial
-port) and is used to set the transmit volume level, monitor receive volume
-level so it can be properly adjusted on the radio, set the KISS parameters,
-and upload new firmware to the TNC.  It requires that the TNC has been
-connected to the computer and assigned a serial port.""",
+"""This program is used to connect to the Mobilinkd TNC1 or TNC2 via RFCOMM
+(serial port) and is used to set the transmit volume level, monitor receive
+volume level so it can be properly adjusted on the radio, set the KISS
+parameters, and upload new firmware to the TNC.  It requires that the TNC has
+been connected to the computer and assigned a serial port.""",
     options = dict(build_exe = buildOptions),
     platforms = ('Any',),
     keywords = ('mobilinkd', 'aprs', 'ham', 'afsk', 'tnc'),
