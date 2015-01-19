@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.18.3 -->
 <interface>
-  <!-- interface-requires gtk+ 3.6 -->
-  <object class="GtkToggleAction" id="toggleaction1"/>
+  <requires lib="gtk+" version="3.6"/>
   <object class="GtkImage" id="bluetooth_icon">
     <property name="width_request">0</property>
     <property name="height_request">0</property>
@@ -164,8 +164,6 @@
                       <object class="GtkComboBoxText" id="serial_port_combobox">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="entry_text_column">0</property>
-                        <property name="id_column">0</property>
                         <signal name="changed" handler="on_serial_port_combobox_changed" swapped="no"/>
                       </object>
                       <packing>
@@ -244,12 +242,13 @@
                         </child>
                         <child>
                           <object class="GtkLevelBar" id="battery_level_bar">
+                            <property name="height_request">20</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="has_tooltip">True</property>
                             <property name="tooltip_markup" translatable="yes">Battery Level</property>
                             <property name="tooltip_text" translatable="yes">Battery Level</property>
-                            <property name="margin_left">100</property>
+                            <property name="margin_left">10</property>
                             <property name="max_value">5</property>
                             <property name="mode">discrete</property>
                           </object>
@@ -678,7 +677,6 @@ volume from the radio produces better results.</property>
                             <property name="max_length">3</property>
                             <property name="invisible_char">●</property>
                             <property name="xalign">0.5</property>
-                            <property name="invisible_char_set">True</property>
                             <property name="input_purpose">number</property>
                             <property name="orientation">vertical</property>
                             <property name="numeric">True</property>
@@ -725,7 +723,6 @@ volume from the radio produces better results.</property>
                             <property name="tooltip_text" translatable="yes">Persistence - CSMA p-persistence value that influences whether to tramsmit or backoff.</property>
                             <property name="invisible_char">●</property>
                             <property name="xalign">0.5</property>
-                            <property name="invisible_char_set">True</property>
                             <property name="orientation">vertical</property>
                             <property name="numeric">True</property>
                             <signal name="value-changed" handler="on_kiss_persistence_spin_button_value_changed" swapped="no"/>
@@ -772,7 +769,6 @@ volume from the radio produces better results.</property>
                             <property name="max_length">3</property>
                             <property name="invisible_char">●</property>
                             <property name="xalign">0.5</property>
-                            <property name="invisible_char_set">True</property>
                             <property name="input_purpose">number</property>
                             <property name="orientation">vertical</property>
                             <property name="numeric">True</property>
@@ -819,7 +815,6 @@ volume from the radio produces better results.</property>
                             <property name="tooltip_text" translatable="yes">TX Tail - the length of time to key the transmitter after the data has been sent.</property>
                             <property name="invisible_char">●</property>
                             <property name="xalign">0.5</property>
-                            <property name="invisible_char_set">True</property>
                             <property name="input_purpose">number</property>
                             <property name="orientation">vertical</property>
                             <property name="numeric">True</property>
@@ -1129,7 +1124,6 @@ The EEPROM can only be written about 100,000 times.</property>
                           <object class="GtkFileChooserButton" id="firmware_file_chooser_button">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="orientation">vertical</property>
                             <property name="create_folders">False</property>
                             <signal name="file-set" handler="on_firmware_file_chooser_button_file_set" swapped="no"/>
                           </object>
@@ -1218,4 +1212,5 @@ The EEPROM can only be written about 100,000 times.</property>
       </object>
     </child>
   </object>
+  <object class="GtkToggleAction" id="toggleaction1"/>
 </interface>

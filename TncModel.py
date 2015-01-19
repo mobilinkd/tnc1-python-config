@@ -5,7 +5,7 @@ import serial
 import time
 import math
 from StringIO import StringIO
-
+from gi.repository import GLib
 from BootLoader import BootLoader
 
 class KissData(object):
@@ -220,7 +220,7 @@ class TncModel(object):
             print "connecting to %s" % self.serial
             self.ser = serial.Serial(self.serial, 38400, timeout=.1)
             print "connected"
-            time.sleep(5)
+            time.sleep(1)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)
             self.sio_writer = self.ser # io.BufferedWriter(self.ser)
             self.app.tnc_connect()
@@ -330,7 +330,8 @@ class TncModel(object):
                 if len(c) == 0: continue
                 packet = self.decoder.process(ord(c[0]))
                 if packet is not None:
-                    self.handle_packet(packet)
+                    GLib.idle_add(self.handle_packet, packet)
+                    # self.handle_packet(packet)
             except ValueError, e:
                 self.app.exception(e)
                 pass

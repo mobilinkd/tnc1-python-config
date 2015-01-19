@@ -79,6 +79,7 @@ class MobilinkdTnc1Config(object):
     def init_power_section(self):
         self.battery_level_label = self.builder.get_object("battery_level_label")
         self.battery_level_bar = self.builder.get_object("battery_level_bar")
+        self.battery_level_bar
         self.battery_level_bar.set_value(0.0)
      
         self.power_control_box = self.builder.get_object("power_control_box")
@@ -234,6 +235,7 @@ class MobilinkdTnc1Config(object):
         self.firmware_gui_tag = GObject.idle_add(self.check_firmware_upload_complete)
     
     def tnc_connect(self):
+        self.serial_port_combobox.set_sensitive(False)
         self.transmit_volume_scale.set_sensitive(True)
         self.mark_toggle_button.set_sensitive(True)
         self.mark_toggle_button.set_active(False)
