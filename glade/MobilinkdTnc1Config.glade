@@ -249,8 +249,8 @@
                             <property name="tooltip_markup" translatable="yes">Battery Level</property>
                             <property name="tooltip_text" translatable="yes">Battery Level</property>
                             <property name="margin_left">10</property>
+                            <property name="margin_bottom">8</property>
                             <property name="max_value">5</property>
-                            <property name="mode">discrete</property>
                           </object>
                           <packing>
                             <property name="expand">True</property>
