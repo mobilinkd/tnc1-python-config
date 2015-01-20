@@ -88,7 +88,7 @@ buildOptions = dict(
 
 setup(
     name = "MobilinkdTnc1Config",
-    version = "0.6.0",
+    version = "0.6.1",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
