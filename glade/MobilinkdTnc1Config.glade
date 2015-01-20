@@ -241,20 +241,14 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLevelBar" id="battery_level_bar">
-                            <property name="height_request">20</property>
+                          <object class="GtkProgressBar" id="battery_level_bar">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="has_tooltip">True</property>
-                            <property name="tooltip_markup" translatable="yes">Battery Level</property>
-                            <property name="tooltip_text" translatable="yes">Battery Level</property>
-                            <property name="margin_left">10</property>
-                            <property name="margin_bottom">8</property>
-                            <property name="max_value">5</property>
                           </object>
                           <packing>
                             <property name="expand">True</property>
                             <property name="fill">True</property>
+                            <property name="padding">10</property>
                             <property name="position">1</property>
                           </packing>
                         </child>

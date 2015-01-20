@@ -79,8 +79,7 @@ class MobilinkdTnc1Config(object):
     def init_power_section(self):
         self.battery_level_label = self.builder.get_object("battery_level_label")
         self.battery_level_bar = self.builder.get_object("battery_level_bar")
-        self.battery_level_bar
-        self.battery_level_bar.set_value(0.0)
+        self.battery_level_bar.set_fraction(0.0)
      
         self.power_control_box = self.builder.get_object("power_control_box")
         self.usb_on_button = self.builder.get_object("usb_on_button")
@@ -299,8 +298,8 @@ class MobilinkdTnc1Config(object):
     
     def tnc_battery_level(self, value):
         self.battery_level_label.set_text(str(int(value)) + "mV")
-        level = (value - 3300.0) / 200.0
-        self.battery_level_bar.set_value(level)
+        level = (value - 3400.0) / 100.0
+        self.battery_level_bar.set_fraction(level / 8.0)
     
     def tnc_power_on(self, value):
         self.usb_on_button.set_sensitive(True)
