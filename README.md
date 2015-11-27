@@ -55,4 +55,16 @@ This was build with Python 2.7.5, pyserial-2.6.4 and pygobject-3.8.3
 
 Will build an RPM that can be installed.
 
+OS X Build
+===========
+
+You will need the X11 server installed from here: https://xquartz.macosforge.org/landing/
+
+Using MacPorts
+
+port install py27-serial
+port install py27-gobject
+port install py27-gobject3
+
+/opt/local/bin/python2.7 MobilinkdTnc1Config.py
 

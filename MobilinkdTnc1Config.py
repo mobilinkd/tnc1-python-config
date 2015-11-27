@@ -13,7 +13,7 @@ import glob
 from TncModel import TncModel
 
 def comports():
-    if os.name == 'posix':
+    if os.name == 'posix' and os.sys.platform != 'darwin':
         devices = glob.glob('/dev/ttyS*') + glob.glob('/dev/ttyUSB*') + glob.glob('/dev/ttyACM*') + glob.glob('/dev/rfcomm*')
         return [(d, serial.tools.list_ports.describe(d), serial.tools.list_ports.hwinfo(d)) for d in devices]
     else:
