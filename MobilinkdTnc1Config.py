@@ -14,10 +14,9 @@ from TncModel import TncModel
 
 def comports():
     if os.name == 'posix':
-        devices = glob.glob('/dev/ttyS*') + glob.glob('/dev/ttyUSB*') + glob.glob('/dev/ttyACM*') + glob.glob('/dev/rfcomm*')
-        return [(d, serial.tools.list_ports.describe(d), serial.tools.list_ports.hwinfo(d)) for d in devices]
+        devices = serial.tools.list_ports.comports() + [(d,d,d) for d in glob.glob('/dev/rfcomm*')]
+        return devices
     else:
-        print [x for x in serial.tools.list_ports.comports()]
         return serial.tools.list_ports.comports()
 
 def glade_location():
