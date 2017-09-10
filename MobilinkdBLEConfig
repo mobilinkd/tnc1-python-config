@@ -1,0 +1,508 @@
+#!/usr/bin/env python2.7
+
+import sys
+import os
+import gi
+import threading
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk,GdkPixbuf,GObject,Pango,Gdk
+
+levelbar_style = b"""
+@define-color color #FF2222;
+
+levelbar trough {
+}
+
+levelbar block.filled.high {
+    background-color: green;
+}
+
+levelbar block.filled.low {
+    background-color: orange;
+    border-color: orange;
+}
+
+levelbar block.filled.low trough { border-color: #f57900; }
+
+levelbar block.filled.full {
+    background-color: gold;
+}
+
+
+"""
+
+def glade_location():
+
+    bin_path = os.path.abspath(os.path.dirname(sys.argv[0]))
+
+    if bin_path in ["/usr/bin", "/bin"]:
+        share_path = '/usr/share/MobilinkdBLEConfig'
+    else:
+        share_path = bin_path
+    
+    return share_path
+
+class MobilinkdBLEConfig(object):
+
+    def __init__(self):
+        self.tnc = None
+        self.connect_message = None
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(
+            os.path.join(glade_location(), "glade/MobilinkdBLEConfig.glade"))
+        
+        self.window = self.builder.get_object("window")
+        self.window.connect("delete-event", self.close)
+        
+        self.style_provider = Gtk.CssProvider()
+        self.style_provider.load_from_data(levelbar_style)
+
+        """
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            self.style_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+        """
+        self.spinner = Gtk.Spinner()
+        self.connect_button = self.builder.get_object("connect_button")
+        self.bluetooth_le_combobox = self.builder.get_object("bluetooth_le_combobox")
+        self.bluetooth_le_spinner = self.builder.get_object("bluetooth_le_spinner")
+        
+        self.status = self.builder.get_object("statusbar")
+        self.context_id = self.status.get_context_id("application")
+        self.searching_message = self.status.push(self.context_id, "Searching for nearby TNCs.")
+        self.builder.connect_signals(self)
+        
+        def update_ble_devices(devices):
+            
+            model = Gtk.ListStore(str, str, int)
+            for mac, name, handle in devices:
+                model.append(["{} ({})".format(name, mac), mac, handle])
+            
+            self.bluetooth_le_combobox.set_model(model)
+            self.bluetooth_le_combobox.set_entry_text_column(1)
+            
+            self.bluetooth_le_spinner.stop()
+            self.bluetooth_le_spinner.set_visible(False)
+            self.bluetooth_le_combobox.set_active(0)
+            self.bluetooth_le_combobox.set_sensitive(True)
+            self.bluetooth_le_combobox.set_visible(True)
+            self.bluetooth_le_combobox.show_all()
+            
+            self.init_power_section()
+            self.init_transmit_volume()
+            self.init_receive_volume()
+            self.init_kiss_section()
+            self.init_eeprom_section()
+            self.init_hardware_section()
+            
+            self.status.remove(1, self.searching_message)
+
+            self.select_message = self.status.push(1, "Select a TNC and press Connect.")
+            
+            self.connect_button.set_sensitive(True)
+
+        def find_ble_devices():
+            import BluetoothLE
+            devices = BluetoothLE.get_hm10_devices()
+            # devices = [("00:0E:16:01:04:B1", "Rob's TNC", 14)]
+            GLib.idle_add(update_ble_devices, devices)
+        
+        # self.init_bluetooth_le_combobox(devices)
+
+        # self.builder.get_object("receive_volume_levelbar").set_visible(False)
+        # self.builder.get_object("rx_mark_levelbar").set_visible(False)
+        # self.builder.get_object("rx_space_levelbar").set_visible(False)
+        # self.builder.get_object("rx_twist_level_box").set_visible(False)
+
+        self.spinner.start()
+        self.window.show()
+        
+        thread = threading.Thread(target=find_ble_devices)
+        thread.daemon = True
+        thread.start()
+
+    def close(self, widget, data=None):
+    
+        self.status.pop(self.context_id)
+        
+        if self.tnc is not None:
+            if self.tnc.connected(): self.tnc.disconnect()
+            self.tnc = None
+        else:
+            Gtk.main_quit()
+    
+    def init_power_section(self):
+        
+        self.power_frame = self.builder.get_object("power_frame")
+        self.power_frame.set_visible(True)
+        
+        self.battery_level_label = self.builder.get_object("battery_level_label")
+        self.battery_levelbar = self.builder.get_object("battery_levelbar")
+        self.battery_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_LOW, 3.0)
+        self.battery_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_HIGH, 9.9)
+        self.battery_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_FULL, 10.0)
+     
+        context = self.battery_levelbar.get_style_context()
+        context.add_provider(self.style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        self.power_control_box = self.builder.get_object("power_control_box")
+        self.usb_on_button = self.builder.get_object("usb_on_button")
+        self.usb_off_button = self.builder.get_object("usb_off_button")
+        self.usb_on_button.set_sensitive(False)
+        self.usb_off_button.set_sensitive(False)
+
+    def init_transmit_volume(self):
+        
+        self.transmit_frame = self.builder.get_object("transmit_frame")
+        self.transmit_frame.set_visible(True)
+        
+        self.transmit_volume_scale = self.builder.get_object("transmit_volume_scale")
+        self.transmit_volume_scale.set_range(16.0, 255.0)
+        self.transmit_volume_scale.set_value(128.0)
+        self.transmit_volume_scale.set_sensitive(False)
+        for i in range(32, 255, 32):
+            self.transmit_volume_scale.add_mark(i, Gtk.PositionType.TOP, None)
+        
+        self.transmit_twist_scale = self.builder.get_object("transmit_twist_scale")
+        self.transmit_twist_scale.set_range(0.0, 100.0)
+        self.transmit_twist_scale.set_value(50.0)
+        self.transmit_twist_scale.set_sensitive(False)
+        for i in range(10, 91, 10):
+            self.transmit_twist_scale.add_mark(i, Gtk.PositionType.TOP, None)
+
+        self.mark_toggle_button = self.builder.get_object("mark_toggle_button")
+        self.space_toggle_button = self.builder.get_object("space_toggle_button")
+        self.ptt_toggle_button = self.builder.get_object("ptt_toggle_button")
+
+        self.ptt_label = self.builder.get_object("ptt_label")
+        self.ptt_simplex_radiobutton = self.builder.get_object("ptt_simplex_radiobutton")
+        self.ptt_multiplex_radiobutton = self.builder.get_object("ptt_multiplex_radiobutton")
+
+    def init_receive_volume(self):
+        
+        self.receive_frame = self.builder.get_object("receive_frame")
+        self.receive_frame.set_visible(True)
+        
+        self.receive_volume_levelbar = self.builder.get_object("receive_volume_levelbar")
+        self.receive_mark_levelbar = self.builder.get_object("receive_mark_levelbar")
+        self.receive_space_levelbar = self.builder.get_object("receive_space_levelbar")
+        self.receive_twist_label = self.builder.get_object("receive_twist_label")
+        
+        self.receive_volume_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_LOW, 7.0)
+        self.receive_volume_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_HIGH, 7.9)
+        self.receive_volume_levelbar.add_offset_value(Gtk.LEVEL_BAR_OFFSET_FULL, 8.0)
+        
+        context = self.receive_volume_levelbar.get_style_context()
+        context.add_provider(self.style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        
+        self.receive_volume_scale = self.builder.get_object("receive_volume_scale")
+        self.receive_volume_scale.set_range(16.0, 255.0)
+        self.receive_volume_scale.set_value(128.0)
+        self.receive_volume_scale.set_sensitive(False)
+        for i in range(32, 255, 32):
+            self.receive_volume_scale.add_mark(i, Gtk.PositionType.TOP, None)
+        
+        self.receive_twist_scale = self.builder.get_object("receive_twist_scale")
+        self.receive_twist_scale.set_range(-9.0, 3.0)
+        self.receive_twist_scale.set_value(0.0)
+        self.receive_twist_scale.set_sensitive(False)
+        for i in range(-6, 1, 3):
+            self.receive_twist_scale.add_mark(i, Gtk.PositionType.TOP, None)
+
+        self.receive_adjust_button = self.builder.get_object("receive_adjust_button")
+
+
+    def init_kiss_section(self):
+                
+        self.kiss_frame = self.builder.get_object("kiss_frame")
+        self.kiss_frame.set_visible(True)
+
+        self.kiss_tx_delay_spin_button = self.builder.get_object("kiss_tx_delay_spin_button")
+        self.kiss_tx_delay_spin_button.set_range(20.0, 255.0)
+        self.kiss_tx_delay_spin_button.set_increments(1.0, 10.0)
+        self.kiss_tx_delay_spin_button.set_value(30)
+        
+        self.kiss_persistence_spin_button = self.builder.get_object("kiss_persistence_spin_button")
+        self.kiss_persistence_spin_button.set_range(32.0, 255.0)
+        self.kiss_persistence_spin_button.set_increments(1.0, 10.0)
+        self.kiss_persistence_spin_button.set_value(63)
+        
+        self.kiss_slot_time_spin_button = self.builder.get_object("kiss_slot_time_spin_button")
+        self.kiss_slot_time_spin_button.set_range(10.0, 255.0)
+        self.kiss_slot_time_spin_button.set_increments(1.0, 10.0)
+        self.kiss_slot_time_spin_button.set_value(25)
+        
+        self.kiss_tx_tail_spin_button = self.builder.get_object("kiss_tx_tail_spin_button")
+        self.kiss_tx_tail_spin_button.set_range(0.0, 255.0)
+        self.kiss_tx_tail_spin_button.set_increments(1.0, 10.0)
+        self.kiss_tx_tail_spin_button.set_value(1)
+        self.kiss_tx_tail_spin_button.set_sensitive(False)
+        
+        self.kiss_duplex_toggle_button = self.builder.get_object("kiss_duplex_toggle_button")
+        self.kiss_full_duplex_image = self.builder.get_object("kiss_full_duplex_image")
+        self.kiss_half_duplex_image = self.builder.get_object("kiss_half_duplex_image")
+
+        self.safety_toggle_button = self.builder.get_object("safety_toggle_button")
+        self.safety_toggle_button.set_label("Unsafe")
+        self.safety_toggle_button.set_image(Gtk.Image.new_from_icon_name("dialog-warning", Gtk.IconSize.BUTTON))
+        self.safety_toggle_button.always_show_image = True
+        self.safety_toggle_button.show_all()
+    
+    def init_eeprom_section(self):
+        
+        self.eeprom_frame = self.builder.get_object("eeprom_frame")
+        self.eeprom_frame.set_visible(True)
+
+        self.eeprom_save_button = self.builder.get_object("eeprom_save_button")
+        self.eeprom_save_button.set_sensitive(False)
+
+    def init_hardware_section(self):
+
+        self.hardware_frame = self.builder.get_object("hardware_frame")
+        self.hardware_frame.set_visible(True)
+        self.hardware_entry = self.builder.get_object("hardware_entry")
+        self.firmware_entry = self.builder.get_object("firmware_entry")
+
+    def on_window_destroy(self, widget, data=None):
+        if self.tnc is not None: self.tnc.disconnect()
+        Gtk.main_quit()    
+
+    # Connection section
+    def on_bluetooth_le_combobox_changed(self, widget, data=None):
+        pass
+    
+    def on_connect_button_clicked(self, widget, data=None):
+        
+        from BleModel import BleModel
+        
+        if self.tnc is not None:
+            self.close(widget, data)
+            return
+
+        tnc = self.bluetooth_le_combobox.get_active_iter()
+        
+        try:
+            self.status.pop(self.context_id)
+            self.status.show_all()
+            model = self.bluetooth_le_combobox.get_model()
+            mac = model[tnc][1]
+            handle = model[tnc][2]
+            self.tnc = BleModel(self, mac, handle)
+            self.tnc_name = model[tnc][0]
+            self.connecting_message = self.status.push(self.context_id,
+                "Connecting to " + self.tnc_name)
+            self.status.show_all()
+            self.tnc.connect()
+        except Exception, ex:
+            print ex
+
+    # Power section
+    def on_usb_on_button_toggled(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_usb_on(widget.get_active())
+    
+    def on_usb_off_button_toggled(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_usb_off(widget.get_active())
+    
+    # Transmit section
+    def on_mark_toggle_button_toggled(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_mark(widget.get_active())
+    
+    def on_space_toggle_button_toggled(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_space(widget.get_active())
+    
+    def on_ptt_toggle_button_toggled(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_ptt(widget.get_active())
+        self.transmit_volume_scale.set_sensitive(widget.get_active())
+        self.transmit_twist_scale.set_sensitive(widget.get_active())
+
+    def on_ptt_style_toggled(self, widget, data=None):
+        if self.tnc is None: return
+        if widget.get_active():
+            self.tnc.set_ptt_channel(self.ptt_multiplex_radiobutton.get_active())
+    
+    def on_transmit_volume_scale_change_value(self, widget, scroll, value, data=None):
+        if value > 255: value = 255
+        if value < 0: value = 0
+        widget.set_value(int(value))
+        if self.tnc is None: return True
+        self.tnc.set_tx_volume(int(value))
+        return True
+    
+    def on_transmit_twist_scale_change_value(self, widget, scroll, value, data=None):
+        if value > 100: value = 100
+        if value < 0: value = 0
+        widget.set_value(int(value))
+        if self.tnc is None: return True
+        self.tnc.set_tx_twist(int(value))
+        return True
+
+    # Receive section
+    
+    def on_receive_volume_scale_value_changed(self, widget, data=None):
+        value = widget.get_value()
+    
+    def on_receive_adjust_button_clicked(self, widget, data=None):
+        pass
+    
+    def on_receive_twist_scale_value_changed(self, widget, data=None):
+        pass
+    
+    # KISS Section
+
+    def on_kiss_duplex_toggled(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_duplex(widget.get_active())
+    
+    def on_safety_toggle_button_toggled(self, widget, data=None):
+        pass
+    
+    def on_kiss_tx_delay_spin_button_value_changed(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_tx_delay(widget.get_value_as_int())
+        
+    def on_kiss_persistence_spin_button_value_changed(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_persistence(widget.get_value_as_int())
+        
+    def on_kiss_slot_time_spin_button_value_changed(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_time_slot(widget.get_value_as_int())
+        
+    def on_kiss_tx_tail_spin_button_value_changed(self, widget, data=None):
+        if self.tnc is None: return
+        self.tnc.set_tx_tail(widget.get_value_as_int())
+
+    def exception(self, e):
+        try:
+            dialog = self.builder.get_object("error_dialog")
+            dialog.format_secondary_text(str(e))
+            dialog.run()
+            dialog.hide()
+        except Exception, e:
+            print "Inception"
+            Gtk.main_quit()
+
+    def tnc_exception(self, e):
+        GLib.idle_add(self.exception, e)
+
+    def set_connected_status(self):
+        self.status.pop(self.context_id)
+        self.connected_message = self.status.push(self.context_id,
+            "Connected to "  + self.tnc_name)
+
+    def tnc_connect(self):
+        print "tnc_connect"
+        GLib.idle_add(self.connect_button.set_label, "Disconnect")
+        GLib.idle_add(self.connect_button.set_image, Gtk.Image.new_from_icon_name("gtk-disconnect", Gtk.IconSize.BUTTON))
+        GLib.idle_add(self.set_connected_status)
+        GLib.idle_add(self.power_frame.set_sensitive, True)
+        GLib.idle_add(self.transmit_frame.set_sensitive, True)
+        GLib.idle_add(self.receive_frame.set_sensitive, True)
+        GLib.idle_add(self.kiss_frame.set_sensitive, True)
+        GLib.idle_add(self.eeprom_frame.set_sensitive, True)
+        GLib.idle_add(self.bluetooth_le_combobox.set_sensitive, False)
+
+    def tnc_disconnect(self):
+        GLib.idle_add(Gtk.main_quit)
+    
+    # Power section
+    def tnc_battery_level(self, value):
+        GLib.idle_add(self.battery_level_label.set_text, str(int(value)) + "mV")
+        level = (value - 3200.0) / 100.0
+        print "setting battery level to", level
+        GLib.idle_add(self.battery_levelbar.set_value, level)
+    
+    def tnc_power_on(self, value):
+        GLib.idle_add(self.usb_on_button.set_sensitive, True)
+        GLib.idle_add(self.usb_on_button.set_active, value)
+
+    def tnc_power_off(self, value):
+        GLib.idle_add(self.usb_off_button.set_sensitive, True)
+        GLib.idle_add(self.usb_off_button.set_active, value)
+
+    # Transmit section
+    def tnc_ptt_style(self, value):
+        
+        GLib.idle_add(self.ptt_label.set_visible, True)
+        GLib.idle_add(self.ptt_simplex_radiobutton.set_visible, True)
+        GLib.idle_add(self.ptt_multiplex_radiobutton.set_visible, True)
+        
+        GLib.idle_add(self.ptt_simplex_radiobutton.set_sensitive, True)
+        GLib.idle_add(self.ptt_simplex_radiobutton.set_active, False)
+        
+        GLib.idle_add(self.ptt_multiplex_radiobutton.set_sensitive, True)
+        GLib.idle_add(self.ptt_multiplex_radiobutton.set_active, False)
+        
+        if value == 0:
+            GLib.idle_add(self.ptt_simplex_radiobutton.set_active, True)
+        else:
+            GLib.idle_add(self.ptt_multiplex_radiobutton.set_active, True)
+
+    def tnc_tx_volume(self, value):
+        GLib.idle_add(self.transmit_volume_scale.set_value, value)
+    
+    def tnc_tx_twist(self, value):
+        GLib.idle_add(self.transmit_twist_scale.set_value, value)
+    
+    # Receive section
+    def tnc_rx_volume(self, value):
+        GLib.idle_add(self.receive_volume_levelbar.set_value, value)
+
+    def tnc_receive_twist(self, value):
+        GLib.idle_add(self.receive_twist_scale.set_value, value)
+    
+    def tnc_receive_twist_levels(self, g1200, g2200):
+        GLib.idle_add(self.receive_mark_levelbar.set_value, 10.0 + g1200 / 4.0)
+        GLib.idle_add(self.receive_space_levelbar.set_value, 10.0 + g2200 / 4.0)
+        GLib.idle_add(self.receive_twist_label.set_label, '%2.2fdB' % (g1200 - g2200))
+        
+    # KISS section
+    def tnc_tx_delay(self, value):
+        GLib.idle_add(self.kiss_tx_delay_spin_button.set_value, value)
+    
+    def tnc_persistence(self, value):
+        GLib.idle_add(self.kiss_persistence_spin_button.set_value, value)
+    
+    def tnc_slot_time(self, value):
+        GLib.idle_add(self.kiss_slot_time_spin_button.set_value, value)
+    
+    def tnc_tx_tail(self, value):
+        GLib.idle_add(self.kiss_tx_tail_spin_button.set_value, value)
+        
+    def tnc_duplex(self, value):
+        GLib.idle_add(self.kiss_duplex_toggle_button.set_sensitive, True)
+        GLib.idle_add(self.kiss_duplex_toggle_button.set_active, value)
+        return
+        if value:
+            GLib.idle_add(self.kiss_duplex_toggle_button.set_image, self.kiss_full_duplex_image)
+        else:
+            GLib.idle_add(self.kiss_duplex_toggle_button.set_image, self.kiss_half_duplex_image)
+
+    # EEPROM section
+    def tnc_eeprom_save(self):
+        GLib.idle_add(self.eeprom_frame.set_visible, True)
+        GLib.idle_add(self.eeprom_save_button.set_sensitive, True)
+    
+    def tnc_firmware_version(self, value):
+        GLib.idle_add(self.firmware_entry.set_label, value)
+
+    def tnc_hardware_version(self, value):
+        GLib.idle_add(self.hardware_entry.set_label, value)
+
+
+
+if __name__ == '__main__':
+
+    GObject.threads_init()
+    
+    app = MobilinkdBLEConfig()
+    Gtk.main()
+

@@ -3,46 +3,38 @@
 import sys
 import os
 import gi
+import BluetoothLE
+
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk,GdkPixbuf,GObject,Pango,Gdk
 
-import serial.tools.list_ports
-import glob
-
 from TncModel import TncModel
-
-def comports():
-    if os.name == 'posix':
-        devices = serial.tools.list_ports.comports() + [(d,d,d) for d in glob.glob('/dev/rfcomm*')]
-        return devices
-    else:
-        return serial.tools.list_ports.comports()
 
 def glade_location():
 
     bin_path = os.path.abspath(os.path.dirname(sys.argv[0]))
 
     if bin_path in ["/usr/bin", "/bin"]:
-        share_path = '/usr/share/MobilinkdTnc1Config'
+        share_path = '/usr/share/MobilinkdBLEConfig'
     else:
         share_path = bin_path
     
     return share_path
 
-class MobilinkdTnc1Config(object):
+class MobilinkdBLEConfig(object):
 
     def __init__(self):
         self.tnc = None
         self.connect_message = None
         self.builder = Gtk.Builder()
         self.builder.add_from_file(
-            os.path.join(glade_location(), "glade/MobilinkdTnc1Config.glade"))
+            os.path.join(glade_location(), "glade/MobilinkdBLEConfig.glade"))
         
         self.window = self.builder.get_object("window")
         self.window.connect("delete-event", self.close)
-        
-        self.init_serial_port_combobox()
+        """
+        self.init_bluetooth_le_combobox()
         self.init_power_section()
         self.init_transmit_volume()
         self.init_receive_volume()
@@ -58,7 +50,7 @@ class MobilinkdTnc1Config(object):
         if len(sys.argv) == 2:
             self.tnc = TncModel(self, sys.argv[1])
             self.tnc.connect()
-
+        """
         self.window.show()
         Gtk.main()
     
@@ -69,12 +61,12 @@ class MobilinkdTnc1Config(object):
             self.tnc = None
         Gtk.main_quit()
 
-    def init_serial_port_combobox(self):
+    def init_bluetooth_le_combobox(self):
         self.serial_port_combobox = self.builder.get_object("serial_port_combobox")
-        for port in comports():
-            self.serial_port_combobox.append_text(port[0])
+        for address, name in BluetoothLE.get_hm10_devices():
+            self.bluetooth_le_combobox.append_text('{1} - {2}'.format(name, address))
     
-    def on_serial_port_combobox_changed(self, widget, data=None):
+    def on_bluetooth_le_combobox_changed(self, widget, data=None):
         text = widget.get_active_text()
         if text != None:
             self.tnc = TncModel(self, text)
@@ -414,63 +406,8 @@ def replace_widget(current, new):
     container.add(new)
     
 
-class FirmwareUploadGui(object):
-    
-    def __init__(self, builder, tnc):
-        
-        self.builder = builder
-        self.tnc = tnc
-        self.statusbar = self.builder.get_object("statusbar")
-        self.progressbar = self.builder.get_object("firmware_progress_bar")
-        self.success_dialog = self.builder.get_object("firmware_success_dialog")
-        self.error_dialog = self.builder.get_object("firmware_error_dialog")
-        replace_widget(self.statusbar, self.progressbar)
-        self.result = None
-    
-    def __del__(self):
-        
-        replace_widget(self.progressbar,self.statusbar)
-    
-    def complete(self):
-    
-        return self.result is not None
-    
-    def set_steps(self, steps):
-        
-        self.progressbar.set_pulse_step(1.0 / steps)
-
-    def writing(self):
-        
-        self.progressbar.set_text("Writing...")
-        self.progressbar.set_fraction(0.0)
-    
-    def verifying(self):
-        
-        self.progressbar.set_text("Verifying...")
-        self.progressbar.set_fraction(0.0)
-    
-    def pulse(self):
-        
-        self.progressbar.pulse()
-    
-    def success(self):
-        
-        self.result = self.success_dialog
-    
-    def failure(self, msg):
-        
-        self.error_dialog.format_secondary_text(msg)
-        self.result = self.error_dialog
-
-    def dialog(self):
-        
-        self.result.run()
-        self.result.hide()
-        # self.success_dialog.hide()
-
-
 if __name__ == '__main__':
 
     GObject.threads_init()
-    app = MobilinkdTnc1Config()
+    app = MobilinkdBLEConfig()
 
