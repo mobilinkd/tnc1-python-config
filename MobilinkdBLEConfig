@@ -77,9 +77,9 @@ class MobilinkdBLEConfig(object):
         
         def update_ble_devices(devices):
             
-            model = Gtk.ListStore(str, str, int)
-            for mac, name, handle in devices:
-                model.append(["{} ({})".format(name, mac), mac, handle])
+            model = Gtk.ListStore(str, str)
+            for mac, name in devices:
+                model.append(["{} ({})".format(name, mac), mac])
             
             self.bluetooth_le_combobox.set_model(model)
             self.bluetooth_le_combobox.set_entry_text_column(1)
@@ -106,7 +106,7 @@ class MobilinkdBLEConfig(object):
 
         def find_ble_devices():
             import BluetoothLE
-            devices = BluetoothLE.get_hm10_devices()
+            devices = BluetoothLE.find_devices_with_service(BluetoothLE.KTS_SERVICE_UUID)
             # devices = [("00:0E:16:01:04:B1", "Rob's TNC", 14)]
             GLib.idle_add(update_ble_devices, devices)
         
@@ -289,8 +289,7 @@ class MobilinkdBLEConfig(object):
             self.status.show_all()
             model = self.bluetooth_le_combobox.get_model()
             mac = model[tnc][1]
-            handle = model[tnc][2]
-            self.tnc = BleModel(self, mac, handle)
+            self.tnc = BleModel(self, mac)
             self.tnc_name = model[tnc][0]
             self.connecting_message = self.status.push(self.context_id,
                 "Connecting to " + self.tnc_name)
