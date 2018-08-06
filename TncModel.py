@@ -75,11 +75,12 @@ class KissDecode(object):
     def wait_packet_type(self, c, escape):
         
         if not escape and c == self.FEND: return # possible dupe
-        if c != 0x06:
-            # raise ValueError("Invalid KISS packet type received (%d)" % c)
-            pass
         self.packet.packet_type = c
-        self.state = self.WAIT_SUB_TYPE
+        if c == 0x06:
+            self.state = self.WAIT_SUB_TYPE
+        else:
+            self.packet.data = ""
+            self.state = self.WAIT_DATA
     
     def wait_sub_type(self, c, escape):
         self.packet.sub_type = c
@@ -277,9 +278,12 @@ class TncModel(object):
     
     def handle_packet(self, packet):
         # print packet, packet.data
-        if packet.packet_type != 0x06:
+        if packet.packet_type == 0x07:
+            print packet.data
+            self.app.notice(packet.data);
+        elif packet.packet_type != 0x06:
             return
-        if packet.sub_type == self.HANDLE_RX_VOLUME:
+        elif packet.sub_type == self.HANDLE_RX_VOLUME:
             self.handle_rx_volume(packet)
         elif packet.sub_type == self.HANDLE_TX_VOLUME:
             self.handle_tx_volume(packet)
