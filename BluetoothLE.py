@@ -10,12 +10,51 @@ from bluetooth.ble import GATTRequester, GATTResponse
 import binascii
 import Queue
 import threading
+import struct
 
 from time import sleep
 from cStringIO import StringIO
 
-UART_CHARACTERISTIC = '0000ffe1-0000-1000-8000-00805f9b34fb'
+KTS_SERVICE_UUID = '424a0001-90d6-4c48-b2aa-ab415169c333'
+KTS_RX_CHAR_UUID = '424a0002-90d6-4c48-b2aa-ab415169c333' # Read/Notify
+KTS_TX_CHAR_UUID = '424a0003-90d6-4c48-b2aa-ab415169c333' # Write/Response
 
+
+class Finder(GATTRequester):
+    
+    def __init__(self, address, connect = False):
+        GATTRequester.__init__(self, address, connect)
+        self.connect(True, channel_type = 'random', security_level = 'medium')
+    
+    def on_indication(self, handle, data):
+        pass
+
+def is_device_with_service(address, uuid):
+    result = False
+    try:
+        finder = Finder(address, False)
+        services = finder.discover_primary()
+        for service in services:
+            # print(service)
+            if service['uuid'] == uuid: result = True
+    except Exception:
+        pass
+    
+    return result
+
+def find_devices_with_service(uuid):
+
+    service = DiscoveryService('hci0')
+    devices = service.discover(2)
+    
+    results = []
+    
+    for address, name in devices.items():
+        if is_device_with_service(address, uuid):
+            if name == "": name = "TNC5"
+            results.append((address, name))
+    
+    return results
 
 class TNCResponse(GATTResponse):
     def __init__(self, callback):
@@ -31,12 +70,12 @@ class TNCRequester(GATTRequester):
     The requester connected to the specific GATT characteristic.
     """
 
-    def __init__(self, mac, handle, to_tnc, from_tnc, callback):
+    def __init__(self, mac, to_tnc, from_tnc, callback):
         self.thread = None
         self.mac = mac
-        self.handle = handle
         self.input_queue = from_tnc
         self.output_queue = to_tnc
+        self.callback = callback
         self.response = TNCResponse(callback)
         GATTRequester.__init__(self, mac, False)
 
@@ -45,8 +84,38 @@ class TNCRequester(GATTRequester):
         self.thread.daemon = True
         self.thread.start()
 
-    def get_handle(self): return self.handle
-    
+    def find_characteristics(self):
+
+        # Find the READ and WRITE characteristics and store their handles.
+        chars = self.discover_characteristics()
+        
+        rx_handle = [x['value_handle'] for x in chars
+            if x['uuid'] == KTS_RX_CHAR_UUID]
+        tx_handle = [x['value_handle'] for x in chars
+            if x['uuid'] == KTS_TX_CHAR_UUID]
+
+        if len(rx_handle) != 0:
+            self.rx_handle = rx_handle[0]
+            self.rx_cccd = self.rx_handle + 1
+
+        if len(tx_handle) != 0:
+            self.tx_handle = tx_handle[0]
+
+        if self.rx_handle is None or self.tx_handle is None:
+            raise RuntimeError("TNC characteristics not found.")
+
+    def enable_notification(self):
+        
+        print("enable notifications")
+        self.write_by_handle(
+            self.rx_cccd, struct.pack('<bb', 0x01, 0x00))
+
+    def disable_notification(self):
+               
+        print("disable notifications")
+        self.write_by_handle(
+            self.rx_cccd, struct.pack('<bb', 0x00, 0x00))
+
     def write(self, data):
         self.output_queue.put(data)
 
@@ -54,83 +123,51 @@ class TNCRequester(GATTRequester):
         # print "notified!"
         self.input_queue.put(data[3:])
 
+    def on_indication(self, handle, data):
+        pass
+
     def run(self):
         print "connecting to", self.mac
-        GATTRequester.connect(self, wait = True)
-        print "connected. reading from handle", self.handle, "..."
-        self.read_by_handle_async(self.handle, self.response)
+        GATTRequester.connect(self, wait=True, channel_type = 'random', security_level = 'medium')
+
+        self.blocksize = 20 # Adjust per MTU
+
+        self.find_characteristics()
+        self.enable_notification()
         
-        pos = 0
+        self.callback()
+        
         block = StringIO()
         
         while True:
             data = None
-            if pos == 0:
-                # Create a new buffer and wait for data.  This can
-                # only wait a few seconds in order to check for
-                # BLE disconnection.
-                try:
-                    data = self.output_queue.get(block = True, timeout = 3.0)
-                    if data is None: return
-                except Queue.Empty:
-                    data = None
-            else:
-                # We read less than 20 bytes.  Time out in 10ms to
-                # send a short packet.
-                try:
-                    data = self.output_queue.get(block = True, timeout = 0.01)
-                    if data is None: break
-                except Queue.Empty:
-                    data = None
-            
-            if data is None:
-                # Poll timeout
+            # Create a new buffer and wait for data.  This can
+            # only wait a few seconds in order to check for
+            # BLE disconnection.
+            try:
+                data = self.output_queue.get(block = True, timeout = 1.0)
+                if data is None:
+                    return
+            except Queue.Empty:
                 if not self.is_connected():
-                    print "not connected in run()"
-                    self.input_queue.put(None)
-                    break
-
-                if pos == 0: continue # nothing to send
-
-                self.write_by_handle_async(self.handle,
-                    str(bytearray(block.getvalue())),
-                    self.response)
-                pos = 0
-                block = StringIO()
+                    return
+                continue
+                        
             else:
-                print "read:", len(data), "bytes"
-                ipos = 0
-                while ipos != len(data):
-                    l = min(20 - pos, len(data) - ipos)
-                    block.write(data[ipos:ipos + l])
-                    ipos += l
-                    pos += l
-                    if pos == 20:
-                        self.write_by_handle_async(self.handle,
-                            block.getvalue(), self.response)
-                        pos = 0
-                        block = StringIO()
+                print("tx[{:2d}]: {}".format(len(data), binascii.hexlify(data)))
+                
+                for block in [data[i:i + self.blocksize] for i in range(0, len(data), self.blocksize)]:
+                    print("tx[{:2d}]: {}".format(len(data), binascii.hexlify(block)))
+                    self.write_by_handle_async(self.tx_handle, block, self.response)
+                self.output_queue.task_done()
+                
 
     def __del__(self):
         self.output_queue.put(None)
         self.input_queue.put(None)
         if self.thread is not None: self.thread.join()
+        self.disable_notification()
         self.disconnect()
 
-def is_hm10(address):
-    req = GATTRequester(address, False)
-    req.connect(True)
-    characteristics = req.discover_characteristics()
-    return [x['value_handle'] for x in characteristics
-        if x['uuid'] == UART_CHARACTERISTIC]
 
-def get_hm10_devices():
-    service = DiscoveryService()
-    ble_devices = service.discover(2)
-    result = []
-    for address, name in ble_devices.items():
-        handle = is_hm10(address)
-        if handle is not None:
-            result.append((address, name, handle[0]))
-    return result          
         
