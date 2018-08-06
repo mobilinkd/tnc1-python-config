@@ -232,10 +232,9 @@ class BleModel(object):
     LOG_2 = math.log(2)
 
 
-    def __init__(self, app, mac, handle):
+    def __init__(self, app, mac):
         self.app = app
         self.mac = mac
-        self.handle = handle
         self.from_tnc = Queue.Queue()
         self.to_tnc = Queue.Queue()
         self.decoder = KissDecode()
@@ -267,7 +266,7 @@ class BleModel(object):
     
     def connect(self):
         try:
-            self.requester = TNCRequester(self.mac, self.handle,
+            self.requester = TNCRequester(self.mac,
                 self.to_tnc, self.from_tnc, self.connected_callback)
             self.requester.connect()
 
