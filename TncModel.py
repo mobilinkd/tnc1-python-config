@@ -4,7 +4,7 @@ import threading
 import serial
 import time
 import math
-from StringIO import StringIO
+from io import StringIO
 from gi.repository import GLib
 from BootLoader import BootLoader
 
@@ -218,9 +218,9 @@ class TncModel(object):
         if self.connected(): return
         
         try:
-            print "connecting to %s" % self.serial
+            print("connecting to %s" % self.serial)
             self.ser = serial.Serial(self.serial, 38400, timeout=.1)
-            print "connected"
+            print("connected")
             time.sleep(1)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)
             self.sio_writer = self.ser # io.BufferedWriter(self.ser)
@@ -239,7 +239,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
 
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
 
     def reconnect(self):
@@ -256,7 +256,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.GET_ALL_VALUES))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
         
     
@@ -268,7 +268,7 @@ class TncModel(object):
                 self.sio_writer.flush()
                 self.thd.join()
                 self.thd = None
-            except Exception, e:
+            except Exception as e:
                 self.app.exception(e)
 
         self.app.tnc_disconnect()
@@ -279,7 +279,7 @@ class TncModel(object):
     def handle_packet(self, packet):
         # print packet, packet.data
         if packet.packet_type == 0x07:
-            print packet.data
+            print(packet.data)
             self.app.notice(packet.data);
         elif packet.packet_type != 0x06:
             return
@@ -336,7 +336,7 @@ class TncModel(object):
                 if packet is not None:
                     GLib.idle_add(self.handle_packet, packet)
                     # self.handle_packet(packet)
-            except ValueError, e:
+            except ValueError as e:
                 self.app.exception(e)
                 pass
         
@@ -421,7 +421,7 @@ class TncModel(object):
         try:
             self.sio_writer.write(self.encoder.encode(self.SET_OUTPUT_VOLUME % chr(volume)))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
 
     def set_tx_delay(self, delay):
@@ -429,7 +429,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_TX_DELAY % chr(delay)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_input_atten(self, value):
@@ -437,7 +437,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_INPUT_VOLUME % chr(2 * value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_squelch_level(self, value):
@@ -445,7 +445,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_SQUELCH_LEVEL % chr(value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
 
@@ -454,7 +454,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_PERSISTENCE % chr(p)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_time_slot(self, timeslot):
@@ -462,7 +462,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_TIME_SLOT % chr(timeslot)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_tx_tail(self, tail):
@@ -470,7 +470,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_TX_TAIL % chr(tail)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_duplex(self, value):
@@ -478,7 +478,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_DUPLEX % chr(value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_conn_track(self, value):
@@ -486,7 +486,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_BT_CONN_TRACK % chr(value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_verbosity(self, value):
@@ -494,7 +494,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_VERBOSITY % chr(value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_usb_on(self, value):
@@ -502,7 +502,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_USB_POWER_ON % chr(value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
         
     def set_usb_off(self, value):
@@ -510,7 +510,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SET_USB_POWER_OFF % chr(value)))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
         
     
@@ -519,7 +519,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.SAVE_EEPROM_SETTINGS))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
 
     def set_ptt_channel(self, value):
@@ -529,7 +529,7 @@ class TncModel(object):
             self.sio_writer.write(self.encoder.encode(self.GET_PTT_CHANNEL))
             self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def set_mark(self, value):
@@ -564,14 +564,14 @@ class TncModel(object):
                 self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
         
             self.sio_writer.flush()
-        except Exception, e:
+        except Exception as e:
             self.app.exception(e)
     
     def upload_firmware_thd(self, filename, gui):
 
         try:
             bootloader = BootLoader(self.ser, self.ser, filename, gui)
-        except Exception, e:
+        except Exception as e:
             self.ser.close()
             self.ser = None
             self.sio_reader = None
@@ -592,7 +592,7 @@ class TncModel(object):
             self.sio_writer = None
             time.sleep(5)
             gui.success()
-        except Exception, e:
+        except Exception as e:
             bootloader.chip_erase()
             gui.failure(str(e))
 
