@@ -105,22 +105,22 @@ if __name__ == "__main__":
     
     line = ":100000000C949C010C94C5010C94C5010C94C50181"
     record = IntelHexRecord(line)
-    print record.byteCount
-    print record.address
-    print record.recordType
-    print record.data
-    print record.checksum
-    print record.computeChecksum(line)
+    print((record.byteCount))
+    print((record.address))
+    print((record.recordType))
+    print((record.data))
+    print((record.checksum))
+    print((record.computeChecksum(line)))
     
     # 00 Checksum
     line = ":1008D0009FBF2FEF3FEF25C06FB7F89442A153A100"
     record = IntelHexRecord(line)
-    print record.byteCount
-    print record.address
-    print record.recordType
-    print record.data
-    print record.checksum
-    print record.computeChecksum(line)
+    print((record.byteCount))
+    print((record.address))
+    print((record.recordType))
+    print((record.data))
+    print((record.checksum))
+    print((record.computeChecksum(line)))
     
     filename = "/home/rob/mobilinkd-tnc1/images/mobilinkd-286.hex"
     if len(sys.argv) > 1:
@@ -128,5 +128,5 @@ if __name__ == "__main__":
     
     for line in file(filename):
         record = IntelHexRecord(line.strip())
-        print record
+        print(record)
         

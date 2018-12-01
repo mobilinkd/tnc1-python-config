@@ -143,10 +143,10 @@ class BootLoader(object):
                     if self.gui is not None:
                         self.gui.pulse()
 
-        except Exception, e:
+        except Exception as e:
             # app.exception(e)
             self.avr109.chip_erase()
-            print e
+            print(e)
 
         finally:
             self.avr109.leave_program_mode()
@@ -173,7 +173,7 @@ class BootLoader(object):
                     if self.gui is not None:
                         self.gui.pulse()
 
-        except Exception, e:
+        except Exception as e:
             # app.exception(e)
             self.chip_erase()
             return False
@@ -190,17 +190,17 @@ if __name__ == '__main__':
     import serial
     
     if len(sys.argv) < 3:
-        print "Usage: %s <device> <intel hex image file>"
+        print("Usage: %s <device> <intel hex image file>")
         sys.exit(1)
     
     device = sys.argv[1]
     if not os.path.exists(device):
-        print "%s does not exist"
+        print("%s does not exist")
         sys.exit(1)
     
     filename = sys.argv[2]
     if not os.path.exists(filename):
-        print "%s does not exist"
+        print("%s does not exist")
         sys.exit(1)
 
     ser = serial.Serial(device, 115200, timeout=.1)
