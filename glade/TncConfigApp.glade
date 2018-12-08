@@ -6,7 +6,6 @@
     <property name="upper">5</property>
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
-    <signal name="changed" handler="on_input_gain_adjustment_changed" swapped="no"/>
     <signal name="value-changed" handler="on_input_gain_adjustment_value_changed" swapped="no"/>
   </object>
   <object class="GtkAdjustment" id="input_twist_adjustment">
@@ -15,37 +14,50 @@
     <property name="value">6</property>
     <property name="step_increment">1</property>
     <property name="page_increment">3</property>
-    <signal name="changed" handler="on_input_twist_adjustment_changed" swapped="no"/>
+    <signal name="value-changed" handler="on_input_twist_adjustment_value_changed" swapped="no"/>
   </object>
   <object class="GtkAdjustment" id="output_gain_adjustment">
     <property name="upper">255</property>
     <property name="value">48</property>
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
+    <signal name="value-changed" handler="on_output_gain_adjustment_value_changed" swapped="no"/>
   </object>
   <object class="GtkAdjustment" id="output_twist_adjustment">
     <property name="upper">100</property>
     <property name="value">50</property>
     <property name="step_increment">1</property>
     <property name="page_increment">5</property>
+    <signal name="value-changed" handler="on_output_twist_adjustment_value_changed" swapped="no"/>
   </object>
   <object class="GtkAdjustment" id="p_persistence_adjustment">
     <property name="upper">255</property>
     <property name="value">63</property>
     <property name="step_increment">1</property>
     <property name="page_increment">8</property>
+    <signal name="value-changed" handler="on_p_persistence_adjustment_value_changed" swapped="no"/>
   </object>
   <object class="GtkAdjustment" id="slot_time_adjustment">
     <property name="upper">255</property>
     <property name="value">10</property>
     <property name="step_increment">1</property>
     <property name="page_increment">5</property>
+    <signal name="value-changed" handler="on_slot_time_adjustment_value_changed" swapped="no"/>
+  </object>
+  <object class="GtkFileFilter" id="tnc1_2_file_filter">
+    <mime-types>
+      <mime-type>application/x-intel-hex</mime-type>
+    </mime-types>
+    <patterns>
+      <pattern>*.[hH][eE][xX]</pattern>
+    </patterns>
   </object>
   <object class="GtkAdjustment" id="tx_delay_adjustment">
     <property name="upper">255</property>
     <property name="value">30</property>
     <property name="step_increment">1</property>
     <property name="page_increment">5</property>
+    <signal name="value-changed" handler="on_tx_delay_adjustment_value_changed" swapped="no"/>
   </object>
   <object class="GtkApplicationWindow" id="main_window">
     <property name="name">main_window</property>
@@ -79,7 +91,7 @@
                     <property name="name">serial_port_combo_box_text</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <signal name="changed" handler="on" swapped="no"/>
+                    <signal name="changed" handler="on_serial_port_combo_box_changed" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">True</property>
@@ -95,6 +107,7 @@
                     <property name="receives_default">True</property>
                     <property name="tooltip_text" translatable="yes">Connect to a TNC</property>
                     <property name="use_stock">True</property>
+                    <property name="always_show_image">True</property>
                     <signal name="toggled" handler="on_connect_button_toggled" swapped="no"/>
                   </object>
                   <packing>
@@ -164,8 +177,8 @@
             <property name="can_focus">False</property>
             <property name="spacing">5</property>
             <child>
-              <object class="GtkStackSidebar" id="tnc_config_sidebar">
-                <property name="name">TncConfigSidebar</property>
+              <object class="GtkStackSidebar" id="config_sidebar">
+                <property name="name">config_sidebar</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="stack">config_stack</property>
@@ -185,6 +198,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="transition_type">slide-right</property>
+                <signal name="notify::visible-child-name" handler="on_config_stack_visible_child_name_notify" swapped="no"/>
                 <child>
                   <object class="GtkFrame" id="audio_input_frame">
                     <property name="name">audio_input_frame</property>
@@ -281,6 +295,7 @@
                                     <property name="can_focus">True</property>
                                     <property name="receives_default">False</property>
                                     <property name="draw_indicator">True</property>
+                                    <signal name="toggled" handler="on_input_attenuation_check_button_toggled" swapped="no"/>
                                     <child>
                                       <placeholder/>
                                     </child>
@@ -344,6 +359,7 @@
                                     <property name="round_digits">0</property>
                                     <property name="digits">0</property>
                                     <property name="value_pos">right</property>
+                                    <signal name="button-release-event" handler="on_input_gain_scale_button_release_event" swapped="no"/>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -440,6 +456,7 @@
                                     <property name="round_digits">0</property>
                                     <property name="digits">0</property>
                                     <property name="value_pos">right</property>
+                                    <signal name="button-release-event" handler="on_input_twist_scale_button_release_event" swapped="no"/>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -534,7 +551,7 @@
                     </child>
                   </object>
                   <packing>
-                    <property name="name">audio_input_page</property>
+                    <property name="name">audio_input</property>
                     <property name="title" translatable="yes">Audio Input...</property>
                     <property name="icon_name">audio-input-microphone</property>
                   </packing>
@@ -593,6 +610,7 @@
                                         <property name="receives_default">False</property>
                                         <property name="active">True</property>
                                         <property name="draw_indicator">True</property>
+                                        <signal name="toggled" handler="on_ptt_simplex_radio_button_toggled" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="expand">False</property>
@@ -610,6 +628,7 @@
                                         <property name="active">True</property>
                                         <property name="draw_indicator">True</property>
                                         <property name="group">ptt_simplex_radio_button</property>
+                                        <signal name="toggled" handler="on_ptt_multiplex_radio_button_toggled" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="expand">False</property>
@@ -675,6 +694,7 @@
                                     <property name="round_digits">0</property>
                                     <property name="digits">0</property>
                                     <property name="value_pos">right</property>
+                                    <signal name="button-release-event" handler="on_output_gain_scale_button_release_event" swapped="no"/>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -770,6 +790,7 @@
                                     <property name="round_digits">0</property>
                                     <property name="digits">0</property>
                                     <property name="value_pos">right</property>
+                                    <signal name="button-release-event" handler="on_output_twist_scale_button_release_event" swapped="no"/>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -869,6 +890,7 @@
                                         <property name="receives_default">False</property>
                                         <property name="active">True</property>
                                         <property name="draw_indicator">True</property>
+                                        <signal name="toggled" handler="on_mark_tone_radio_button_toggled" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="expand">False</property>
@@ -882,9 +904,9 @@
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="active">True</property>
                                         <property name="draw_indicator">True</property>
                                         <property name="group">mark_tone_radio_button</property>
+                                        <signal name="toggled" handler="on_space_tone_radio_button_toggled" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="expand">False</property>
@@ -898,9 +920,9 @@
                                         <property name="visible">True</property>
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
-                                        <property name="active">True</property>
                                         <property name="draw_indicator">True</property>
                                         <property name="group">mark_tone_radio_button</property>
+                                        <signal name="toggled" handler="on_both_tone_radio_button_toggled" swapped="no"/>
                                       </object>
                                       <packing>
                                         <property name="expand">False</property>
@@ -941,6 +963,7 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
+                                <signal name="toggled" handler="on_transmit_toggle_button_toggled" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -1036,7 +1059,8 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkLevelBar">
+                                  <object class="GtkLevelBar" id="battery_level_bar">
+                                    <property name="name">battery_level_bar</property>
                                     <property name="height_request">20</property>
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
@@ -1116,6 +1140,7 @@
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
                                         <property name="draw_indicator">True</property>
+                                        <signal name="toggled" handler="on_power_on_check_button_toggled" swapped="no"/>
                                         <child>
                                           <placeholder/>
                                         </child>
@@ -1143,6 +1168,7 @@
                                         <property name="can_focus">True</property>
                                         <property name="receives_default">False</property>
                                         <property name="draw_indicator">True</property>
+                                        <signal name="toggled" handler="on_power_off_check_button_toggled" swapped="no"/>
                                         <child>
                                           <placeholder/>
                                         </child>
@@ -1241,6 +1267,7 @@
                                 <property name="numeric">True</property>
                                 <property name="update_policy">if-valid</property>
                                 <property name="value">30</property>
+                                <signal name="button-release-event" handler="on_tx_delay_spin_button_button_release_event" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="left_attach">1</property>
@@ -1277,6 +1304,7 @@
                                 <property name="numeric">True</property>
                                 <property name="update_policy">if-valid</property>
                                 <property name="value">10</property>
+                                <signal name="button-release-event" handler="on_slot_time_spin_button_button_release_event" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="left_attach">1</property>
@@ -1313,6 +1341,7 @@
                                 <property name="numeric">True</property>
                                 <property name="update_policy">if-valid</property>
                                 <property name="value">63</property>
+                                <signal name="button-release-event" handler="on_p_persist_spin_button_button_release_event" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="left_attach">1</property>
@@ -1340,6 +1369,7 @@
                                 <property name="receives_default">False</property>
                                 <property name="tooltip_text" translatable="yes">Allow transmitting and receiving at the same time.  This should only be enabled when operating on a split frequency.</property>
                                 <property name="draw_indicator">True</property>
+                                <signal name="toggled" handler="on_full_duplex_check_button_toggled" swapped="no"/>
                                 <child>
                                   <placeholder/>
                                 </child>
@@ -1393,9 +1423,11 @@
                                 <property name="label" translatable="yes">Data Carrier Detection (DCD)</property>
                                 <property name="name">dcd_check_button</property>
                                 <property name="visible">True</property>
+                                <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
                                 <property name="draw_indicator">True</property>
+                                <signal name="toggled" handler="on_dcd_check_button_toggled" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -1408,6 +1440,7 @@
                                 <property name="label" translatable="yes">Connection Tracking</property>
                                 <property name="name">connection_tracking_check_button</property>
                                 <property name="visible">True</property>
+                                <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
                                 <property name="draw_indicator">True</property>
@@ -1423,6 +1456,7 @@
                                 <property name="label" translatable="yes">Verbose Output</property>
                                 <property name="name">verbose_output_check_button</property>
                                 <property name="visible">True</property>
+                                <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
                                 <property name="tooltip_text" translatable="yes">Diagnostic output.  This should almost always be disabled.</property>
@@ -1473,14 +1507,19 @@
                             <property name="can_focus">False</property>
                             <property name="valign">start</property>
                             <property name="margin_top">2</property>
+                            <property name="border_width">5</property>
                             <property name="row_spacing">10</property>
                             <property name="column_spacing">10</property>
+                            <property name="column_homogeneous">True</property>
                             <child>
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="halign">end</property>
                                 <property name="label" translatable="yes">Hardware Version</property>
+                                <attributes>
+                                  <attribute name="weight" value="bold"/>
+                                </attributes>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -1493,6 +1532,9 @@
                                 <property name="can_focus">False</property>
                                 <property name="halign">end</property>
                                 <property name="label" translatable="yes">Firmware Version</property>
+                                <attributes>
+                                  <attribute name="weight" value="bold"/>
+                                </attributes>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -1503,8 +1545,12 @@
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="tooltip_text" translatable="yes">This is the MAC address of the TNC's Bluetooth adapter.</property>
                                 <property name="halign">end</property>
                                 <property name="label" translatable="yes">MAC Address</property>
+                                <attributes>
+                                  <attribute name="weight" value="bold"/>
+                                </attributes>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -1517,6 +1563,9 @@
                                 <property name="can_focus">False</property>
                                 <property name="halign">end</property>
                                 <property name="label" translatable="yes">Serial Number</property>
+                                <attributes>
+                                  <attribute name="weight" value="bold"/>
+                                </attributes>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -1527,10 +1576,84 @@
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="tooltip_text" translatable="yes">This is the date/time in UTC read from the TNC's RTC when the connection was established.</property>
+                                <property name="halign">end</property>
                                 <property name="label" translatable="yes">Date/Time</property>
+                                <attributes>
+                                  <attribute name="weight" value="bold"/>
+                                </attributes>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
+                                <property name="top_attach">4</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="hardware_version_label">
+                                <property name="name">hardware_version_label</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="halign">start</property>
+                                <property name="label" translatable="yes">Unknown</property>
+                                <property name="selectable">True</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="firmware_version_label">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="halign">start</property>
+                                <property name="label" translatable="yes">Unknown</property>
+                                <property name="justify">right</property>
+                                <property name="selectable">True</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="mac_address_label">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="tooltip_text" translatable="yes">This is the MAC address of the TNC's Bluetooth adapter.</property>
+                                <property name="halign">start</property>
+                                <property name="label" translatable="yes">Unsupported</property>
+                                <property name="selectable">True</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">2</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="serial_number_label">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="halign">start</property>
+                                <property name="label" translatable="yes">Unsupported	</property>
+                                <property name="selectable">True</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">3</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="date_time_label">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="tooltip_text" translatable="yes">This is the date/time in UTC read from the TNC's RTC when the connection was established.</property>
+                                <property name="halign">start</property>
+                                <property name="label" translatable="yes">Unsupported</property>
+                                <property name="selectable">True</property>
+                              </object>
+                              <packing>
+                                <property name="left_attach">1</property>
                                 <property name="top_attach">4</property>
                               </packing>
                             </child>
@@ -1574,13 +1697,120 @@
                             <property name="can_focus">False</property>
                             <property name="orientation">vertical</property>
                             <child>
-                              <placeholder/>
+                              <object class="GtkBox">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">Firmware Version</property>
+                                    <attributes>
+                                      <attribute name="weight" value="bold"/>
+                                    </attributes>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="firmware_update_version_label">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="margin_left">5</property>
+                                    <property name="label" translatable="yes">Unknown</property>
+                                    <property name="selectable">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">1</property>
+                                  </packing>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">0</property>
+                              </packing>
                             </child>
                             <child>
-                              <placeholder/>
+                              <object class="GtkBox">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <child>
+                                  <object class="GtkFileChooserButton" id="firmware_file_chooser_button">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="create_folders">False</property>
+                                    <property name="filter">tnc1_2_file_filter</property>
+                                    <property name="local_only">False</property>
+                                    <property name="preview_widget_active">False</property>
+                                    <property name="use_preview_label">False</property>
+                                    <property name="title" translatable="yes">Select firmware image...</property>
+                                    <signal name="file-set" handler="on_firmware_file_chooser_button_file_set" swapped="no"/>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">True</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="upload_button">
+                                    <property name="label">gtk-execute</property>
+                                    <property name="visible">True</property>
+                                    <property name="sensitive">False</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">True</property>
+                                    <property name="tooltip_text" translatable="yes">Upload the firmware to the TNC.</property>
+                                    <property name="use_stock">True</property>
+                                    <property name="always_show_image">True</property>
+                                    <signal name="clicked" handler="on_upload_button_clicked" swapped="no"/>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="pack_type">end</property>
+                                    <property name="position">1</property>
+                                  </packing>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">1</property>
+                              </packing>
                             </child>
                             <child>
-                              <placeholder/>
+                              <object class="GtkSeparator">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="padding">5</property>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkProgressBar" id="firmware_progress_bar">
+                                <property name="name">firmware_progress_bar</property>
+                                <property name="height_request">20</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="valign">baseline</property>
+                                <property name="text" translatable="yes">Select firmware image...</property>
+                                <property name="show_text">True</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">3</property>
+                              </packing>
                             </child>
                           </object>
                         </child>
@@ -1625,12 +1855,14 @@
                             <property name="valign">center</property>
                             <property name="orientation">vertical</property>
                             <child>
-                              <object class="GtkButton" id="save_changes_button">
+                              <object class="GtkButton" id="save_settings_button">
                                 <property name="label" translatable="yes">Save Changes</property>
+                                <property name="name">save_settings_button</property>
                                 <property name="visible">True</property>
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
+                                <signal name="clicked" handler="on_save_settings_button_clicked" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="expand">False</property>

@@ -1,4 +1,4 @@
-#!/bin/env python2.7
+#!/bin/env python3
 #
 # Copyright (c) 2013 Mobilinkd LLC. All Rights Reserved.
 # Released under the Apache License 2.0.
@@ -9,6 +9,8 @@ from Avr109 import Avr109
 import time
 import sys
 import os
+import traceback
+import binascii
 
 class FirmwareSegment(object):
     
@@ -37,7 +39,7 @@ class Firmware(object):
         
         address = 0
         data = []
-        for line in file(self.filename):
+        for line in open(self.filename):
             record = IntelHexRecord(line.strip())
             
             if record.recordType == 1:
@@ -81,7 +83,7 @@ class BootLoader(object):
         self.block = []
         self.address = 0
         if self.gui is not None:
-            self.gui.set_steps(len(self.firmware) / self.block_size)
+            self.gui.firmware_set_steps(len(self.firmware) / self.block_size)
     
     def __del__(self):
         if self.avr109 is not None:
@@ -90,12 +92,18 @@ class BootLoader(object):
     def initialize(self):
     
         self.loader = self.avr109.get_bootloader_signature()
+        print("bootloader type: {}".format(self.loader))
         self.programmer_type = self.avr109.get_programmer_type()
+        print("programmer type: {}".format(self.programmer_type))
         self.sw_version = self.avr109.get_software_version()
+        print("software version: {}".format(self.sw_version))
         self.auto_increment = self.avr109.supports_auto_increment()
         self.block_size = self.avr109.get_block_size()
+        print("block size: {}".format(self.block_size))
         self.device_list = self.avr109.get_device_list()
+        print("device list: {}".format(self.device_list))
         self.signature = self.avr109.get_device_signature()
+        print("Signature: {}".format(binascii.hexlify(self.signature)))
  
         #         print "  Found programmer: Id = '%s'; type = '%s'" % (self.loader, self.programmer_type)
         #         print "Programmer Version: %s" % self.sw_version
@@ -103,9 +111,9 @@ class BootLoader(object):
         #         print "    Has block-mode: %s (size = %d)" % (str(self.block_size > 0), self.block_size)
         #         print "  Device Signature: %02x %02x %02x" % (ord(self.signature[0]),ord(self.signature[1]),ord(self.signature[2]))
         
-        if self.signature != '\x0f\x95\x1e':
+        if self.signature != b'\x0f\x95\x1e' and self.signature != b'\x16\x95\x1e':
             self.avr109.exit_bootloader()
-            raise ValueError("Bad device signature. Not an AVR ATmega 328P.")
+            raise ValueError("Bad device signature. Not an AVR ATmega 328P. {}".format(self.signature))
         if not self.auto_increment:
             self.avr109.exit_bootloader()
             raise ValueError("Bootloader does not support auto-increment")
@@ -121,13 +129,13 @@ class BootLoader(object):
    
     def set_address(self, address):
         
-        # print "Setting address %x" % address
+        print("Setting address %x" % address)
         self.avr109.send_address(address)
     
     def load(self):
         
         if self.gui is not None:
-            self.gui.writing()
+            self.gui.firmware_writing()
             
         try:
             self.avr109.enter_program_mode()
@@ -137,16 +145,16 @@ class BootLoader(object):
                 size = len(segment)
                 while pos < size:
                     tmp = segment.data[pos:pos + self.block_size]
-                    # print "sending %04x" % (pos + segment.address)
+                    # print("sending %04x" % (pos + segment.address))
                     self.avr109.send_block('F', tmp)
                     pos += self.block_size
                     if self.gui is not None:
-                        self.gui.pulse()
+                        self.gui.firmware_pulse()
 
         except Exception as e:
+            traceback.print_exc()
             # app.exception(e)
             self.avr109.chip_erase()
-            print(e)
 
         finally:
             self.avr109.leave_program_mode()
@@ -155,7 +163,7 @@ class BootLoader(object):
     def verify(self):
         
         if self.gui is not None:
-            self.gui.verifying()
+            self.gui.firmware_verifying()
             
         try:
             for segment in self.firmware:
@@ -163,17 +171,20 @@ class BootLoader(object):
                 pos = 0
                 size = len(segment)
                 while pos < size:
-                    tmp = segment.data[pos:pos + self.block_size]
-                    # print "reading %04x" % (pos + segment.address)
+                    tmp = bytearray(segment.data[pos:pos + self.block_size])
+                    # print("reading %04x" % (pos + segment.address))
                     block = self.avr109.read_block('F', len(tmp))
                     if tmp != block:
+                        print(binascii.hexlify(tmp))
+                        print(binascii.hexlify(block))
                         raise IOError(
                             "verify failed at %04X" % (pos + segment.address))
                     pos += self.block_size
                     if self.gui is not None:
-                        self.gui.pulse()
+                        self.gui.firmware_pulse()
 
         except Exception as e:
+            traceback.print_exc()
             # app.exception(e)
             self.chip_erase()
             return False

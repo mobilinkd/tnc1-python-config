@@ -34,7 +34,7 @@ class IntelHexRecord(object):
     
     def getData(self, line, byteCount):
         
-        data = []
+        data = bytearray()
         for i in range(9, 9 + byteCount * 2, 2):
             byte = int(line[i:i+2], 16)
             assert(byte < 256)
