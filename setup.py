@@ -71,10 +71,10 @@ if sys.platform == "win32":
     base = "Win32GUI"
 
 if freeze:
-    executables = [Executable("MobilinkdTnc1Config.py", base=base)]
+    executables = [Executable("TncConfigApp.py", base=base)]
     scripts = None
 else:
-    scripts = ['MobilinkdTnc1Config.py']
+    scripts = ['TncConfigApp.py']
     executables = None
 
 py_modules = ['Avr109', 'BootLoader', 'IntelHexRecord', 'TncModel']
@@ -87,31 +87,29 @@ buildOptions = dict(
     )
 
 setup(
-    name = "MobilinkdTnc1Config",
-    version = "0.6.1",
+    name = "TncConfigApp",
+    version = "1.0.0",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
     license = "Apache 2.0",
-    description = "Configuration tool for Mobilinkd TNC1 and TNC2",
+    description = "Configuration tool for Mobilinkd TNC1, TNC2 and TNC3",
     long_description = 
-"""This program is used to connect to the Mobilinkd TNC1 or TNC2 via RFCOMM
+"""This program is used to connect to a Mobilinkd TNC via Bluetooth SPP
 (serial port) and is used to set the transmit volume level, monitor receive
 volume level so it can be properly adjusted on the radio, set the KISS
 parameters, and upload new firmware to the TNC.  It requires that the TNC has
 been connected to the computer and assigned a serial port.""",
     options = dict(build_exe = buildOptions),
     platforms = ('Any',),
-    keywords = ('mobilinkd', 'aprs', 'ham', 'afsk', 'tnc'),
+    keywords = ('mobilinkd', 'aprs', 'ham', 'afsk', 'tnc', 'ax25', 'kiss'),
     requires = ['pyserial', 'pygobject3'],
     executables = executables,
     scripts = scripts,
     py_modules = py_modules,
     data_files = [
-        ('share/MobilinkdTnc1Config/glade', ['glade/MobilinkdTnc1Config.glade']),
-        ('share/MobilinkdTnc1Config/glade/images', [
-            'glade/images/bluetooth.png', 
-            'glade/images/dcd.png', 
-            'glade/images/duplex.png', 
-            'glade/images/half-duplex.png'])]
+        ('share/TncConfigApp/glade', ['glade/TncConfigApp.glade', 'glade/TncConfigApp.css']),
+        ('share/TncConfigApp/glade/images', ['glade/images/Logo.png']),
+        ('share/doc/TncConfigApp', ['LICENSE', 'README.md'])]
 )
+
