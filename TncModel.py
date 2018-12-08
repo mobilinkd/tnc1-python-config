@@ -251,9 +251,9 @@ class TncModel(object):
         if self.connected(): return
         
         try:
-            print("connecting to %s" % self.serial)
+            # print("connecting to %s" % self.serial)
             self.ser = serial.Serial(self.serial, 38400, timeout=.1)
-            print("connected")
+            # print("connected")
             time.sleep(1)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)
             self.sio_writer = self.ser # io.BufferedWriter(self.ser)
@@ -739,7 +739,8 @@ class TncModel(object):
     def upload_firmware_complete(self):
         
         self.firmware_thd.join()
-        self.internal_connect()
+        time.sleep(5)
+        self.internal_reconnect()
         self.sio_writer.write(self.encoder.encode(self.GET_ALL_VALUES))
 
 

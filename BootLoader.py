@@ -92,18 +92,12 @@ class BootLoader(object):
     def initialize(self):
     
         self.loader = self.avr109.get_bootloader_signature()
-        print("bootloader type: {}".format(self.loader))
         self.programmer_type = self.avr109.get_programmer_type()
-        print("programmer type: {}".format(self.programmer_type))
         self.sw_version = self.avr109.get_software_version()
-        print("software version: {}".format(self.sw_version))
         self.auto_increment = self.avr109.supports_auto_increment()
         self.block_size = self.avr109.get_block_size()
-        print("block size: {}".format(self.block_size))
         self.device_list = self.avr109.get_device_list()
-        print("device list: {}".format(self.device_list))
         self.signature = self.avr109.get_device_signature()
-        print("Signature: {}".format(binascii.hexlify(self.signature)))
  
         #         print "  Found programmer: Id = '%s'; type = '%s'" % (self.loader, self.programmer_type)
         #         print "Programmer Version: %s" % self.sw_version
@@ -129,7 +123,7 @@ class BootLoader(object):
    
     def set_address(self, address):
         
-        print("Setting address %x" % address)
+        # print("Setting address %x" % address)
         self.avr109.send_address(address)
     
     def load(self):

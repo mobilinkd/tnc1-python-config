@@ -118,7 +118,7 @@ class TncConfigApp(object):
     
     ### GtkStack
     def on_config_stack_visible_child_name_notify(self, widget, param):
-        print("visible-child-name", widget.get_visible_child_name())
+        # print("visible-child-name", widget.get_visible_child_name())
         self.change_visible_frame(widget.get_visible_child_name())
     
     def leave_frame(self, widget_name):
@@ -174,7 +174,7 @@ class TncConfigApp(object):
             self.tnc.stream_audio_on()
         
     def on_audio_input_leave(self):
-        print('on_audio_input_leave')
+        # print('on_audio_input_leave')
         if self.tnc is not None:
             self.tnc.stream_audio_off()
     
@@ -229,10 +229,12 @@ class TncConfigApp(object):
         self.last_audio_output_update_time = time.time()
     
     def on_audio_output_enter(self):
-        print('on_audio_output_enter')
+        # print('on_audio_output_enter')
+        pass
         
     def on_audio_output_leave(self):
-        print('on_audio_output_leave')
+        # print('on_audio_output_leave')
+        pass
         
     def on_ptt_simplex_radio_button_toggled(self, widget):
         if self.tnc is None:
@@ -249,7 +251,7 @@ class TncConfigApp(object):
     def on_output_gain_adjustment_value_changed(self, widget):
         now = time.time()
         if now - self.last_audio_output_update_time >= .1:
-            print('on_output_gain_adjustment_value_changed =', widget.get_value())
+            # print('on_output_gain_adjustment_value_changed =', widget.get_value())
             self.tnc.set_tx_volume(int(widget.get_value()))
             self.last_audio_output_update_time = now
 
@@ -302,12 +304,12 @@ class TncConfigApp(object):
         self.power_off_check_button = self.builder.get_object("power_off_check_button")
     
     def on_power_settings_enter(self):
-        print('on_power_settings_enter')
-        if self.tnc is not None:
-            self.tnc.get_battery_level()
+        # print('on_power_settings_enter')
+        self.tnc.get_battery_level()
         
     def on_power_settings_leave(self):
-        print('on_power_settings_leave')
+        # print('on_power_settings_leave')
+        pass
         
     def on_power_on_check_button_toggled(self, widget):
         self.tnc.set_usb_on(widget.get_active())
@@ -326,10 +328,12 @@ class TncConfigApp(object):
         self.last_kiss_parameter_update_time = time.time()
     
     def on_kiss_parameters_enter(self):
-        print('on_kiss_parameters_enter')
+        # print('on_kiss_parameters_enter')
+        pass
         
     def on_kiss_parameters_leave(self):
-        print('on_kiss_parameters_leave')
+        # print('on_kiss_parameters_leave')
+        pass
 
     def on_tx_delay_adjustment_value_changed(self, widget):
         now = time.time()
@@ -374,10 +378,12 @@ class TncConfigApp(object):
         self.verbose_output_check_button = self.builder.get_object("verbose_output_check_button")
     
     def on_modem_settings_enter(self):
-        print('on_modem_settings_enter')
+        # print('on_modem_settings_enter')
+        pass
         
     def on_modem_settings_leave(self):
-        print('on_modem_settings_leave')
+        # print('on_modem_settings_leave')
+        pass
         
     def on_dcd_check_button_toggled(self, widget):
         self.tnc.set_squelch_level((not widget.get_active()) * 2)
@@ -399,11 +405,12 @@ class TncConfigApp(object):
         self.date_time_label = self.builder.get_object("date_time_label")
     
     def on_tnc_information_enter(self):
-        print('on_tnc_information_enter')
+        # print('on_tnc_information_enter')
+        pass
         
     def on_tnc_information_leave(self):
-        print('on_tnc_information_leave')
-
+        # print('on_tnc_information_leave')
+        pass
 
     ### Update Firmware...
     def init_update_firmware_frame(self):
@@ -421,10 +428,12 @@ class TncConfigApp(object):
         self.firmware_file_chooser_button.add_filter(self.file_filter)
     
     def on_update_firmware_enter(self):
-        print('on_update_firmware_enter')
+        # print('on_update_firmware_enter')
+        pass
         
     def on_update_firmware_leave(self):
-        print('on_update_firmware_leave')
+        # print('on_update_firmware_leave')
+        pass
 
     def on_firmware_file_chooser_button_file_set(self, widget, data=None):
         self.firmware_file = self.firmware_file_chooser_button.get_filename()
@@ -444,9 +453,9 @@ Are you sure that you wish to proceed?""")
             return
         
         self.firmware_upload_complete = None
-        # self.firmware_gui_tag = GObject.idle_add(self.check_firmware_upload_complete)
+        self.firmware_gui_tag = GObject.idle_add(self.check_firmware_upload_complete)
         self.sidebar.set_sensitive(False)
-        print("firmware file =", self.firmware_file)
+        # print("firmware file =", self.firmware_file)
         self.tnc.upload_firmware(self.firmware_file, self)
 
 
@@ -457,10 +466,12 @@ Are you sure that you wish to proceed?""")
         self.save_settings_button = self.builder.get_object("save_settings_button")
     
     def on_save_settings_enter(self):
-        print('on_save_settings_enter')
+        # print('on_save_settings_enter')
+        pass
         
     def on_save_settings_leave(self):
-        print('on_save_settings_leave')
+        # print('on_save_settings_leave')
+        pass
 
     def on_save_settings_button_clicked(self, widget):
         self.tnc.save_eeprom_settings()
@@ -617,8 +628,17 @@ Are you sure that you wish to proceed?""")
         self.save_settings_frame.set_visible(True)
         self.save_settings_button.set_sensitive(True)
 
+    def do_exception_dialog(self, ex):
+        confirm = Gtk.MessageDialog(self.main_window, 0,
+            Gtk.MessageType.ERROR,
+            Gtk.ButtonsType.OK, str(ex))
+        confirm.set_title("Error")
+        confirm.run()
+        confirm.destroy()
+
     def exception(self, ex):
-        print(str(ex))
+        # print(str(ex))
+        GObject.idle_add(self.do_exception_dialog, ex)
     
     ### Firmware Update Callbacks
     def is_firmware_update_complete(self):
@@ -626,7 +646,7 @@ Are you sure that you wish to proceed?""")
     
     def firmware_set_steps(self, steps):
         self.progress_bar_step = 1.0 / steps
-        print("progress bar step: {}".format(self.progress_bar_step))
+        # print("progress bar step: {}".format(self.progress_bar_step))
         GObject.idle_add(self.firmware_progress_bar.set_pulse_step, self.progress_bar_step)
 
     def firmware_writing(self):
@@ -646,25 +666,35 @@ Are you sure that you wish to proceed?""")
         GObject.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
     
     def firmware_success(self):
-        Notify.Notification.new("Firmware upload complete").show()
         self.firmware_upload_complete = True
-        self.firmware_progress_bar.set_text("Firmware upload complete")
-        self.sidebar.set_sensitive(True)
-        self.tnc.disconnect()
+        # self.firmware_progress_bar.set_text("Firmware upload complete")
+        # self.sidebar.set_sensitive(True)
+        # self.tnc.disconnect()
     
     def firmware_failure(self, msg):
-        Notify.Notification.new("Firmware upload failed: {}".format(msg)).show()
         self.firmware_upload_complete = False
-        self.firmware_progress_bar.set_text("Firmware upload failed")
-        self.sidebar.set_sensitive(True)
+        # self.firmware_progress_bar.set_text("Firmware upload failed")
+        # self.sidebar.set_sensitive(True)
 
     def check_firmware_upload_complete(self):
         
         if not self.is_firmware_update_complete():
-            self.firmware_gui_tag = GObject.idle_add(self.check_firmware_upload_complete)
+            self.firmware_gui_tag = GObject.timeout_add(1, self.check_firmware_upload_complete)
             return
         
+        if self.firmware_upload_complete:
+            self.firmware_progress_bar.set_text("Firmware upload complete")
+            Notify.Notification.new("Firmware upload complete").show()
+            # self.tnc.disconnect()
+        else:
+            self.firmware_progress_bar.set_text("Firmware upload failed")
+            Notify.Notification.new("Firmware upload failed: {}".format(msg)).show()
+            
         self.tnc.upload_firmware_complete()
+        self.sidebar.set_sensitive(True)
+            
+
+        
 
 
 if __name__ == '__main__':
