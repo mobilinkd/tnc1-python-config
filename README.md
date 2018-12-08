@@ -49,7 +49,11 @@ C:\Python27\python.exe setup.py bdist_msi
 Linux Build
 ===========
 
-This was build with Python 2.7.5, pyserial-2.6.4 and pygobject-3.8.3
+This was built/tested with Python 3.6, pyserial-3.1.1 and pygobject-3.28.3
+
+python3-3.6.6-1.fc28.x86_64
+python3-pyserial-3.1.1-6.fc28.noarch
+python3-gobject-3.28.3-1.fc28.x86_64
 
 ./setup.py bdist_rpm
 
@@ -60,11 +64,14 @@ OS X Build
 
 You will need the X11 server installed from here: https://xquartz.macosforge.org/landing/
 
-Using MacPorts
+Using brew
 
-port install py27-serial
-port install py27-gobject
-port install py27-gobject3
+brew install python3 (upgrade to python-3.7)
+pip3.7 install pyserial
+brew install gtk+3
+brew install pygobject3
+brew install libnotify
+brew install gnome-icon-theme
 
-/opt/local/bin/python2.7 MobilinkdTnc1Config.py
+/opt/local/bin/python3.7 TncConfigApp.py
 

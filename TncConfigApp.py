@@ -453,7 +453,7 @@ Are you sure that you wish to proceed?""")
             return
         
         self.firmware_upload_complete = None
-        self.firmware_gui_tag = GObject.idle_add(self.check_firmware_upload_complete)
+        self.firmware_gui_tag = Glib.idle_add(self.check_firmware_upload_complete)
         self.sidebar.set_sensitive(False)
         # print("firmware file =", self.firmware_file)
         self.tnc.upload_firmware(self.firmware_file, self)
@@ -638,7 +638,7 @@ Are you sure that you wish to proceed?""")
 
     def exception(self, ex):
         # print(str(ex))
-        GObject.idle_add(self.do_exception_dialog, ex)
+        Glib.idle_add(self.do_exception_dialog, ex)
     
     ### Firmware Update Callbacks
     def is_firmware_update_complete(self):
@@ -647,23 +647,23 @@ Are you sure that you wish to proceed?""")
     def firmware_set_steps(self, steps):
         self.progress_bar_step = 1.0 / steps
         # print("progress bar step: {}".format(self.progress_bar_step))
-        GObject.idle_add(self.firmware_progress_bar.set_pulse_step, self.progress_bar_step)
+        Glib.idle_add(self.firmware_progress_bar.set_pulse_step, self.progress_bar_step)
 
     def firmware_writing(self):
         self.progress_bar_progress = 0.0
-        GObject.idle_add(self.firmware_progress_bar.set_text, "Writing...")
-        GObject.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
+        Glib.idle_add(self.firmware_progress_bar.set_text, "Writing...")
+        Glib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
     
     def firmware_verifying(self):
         self.progress_bar_progress = 0.0
-        GObject.idle_add(self.firmware_progress_bar.set_text, "Verifying...")
-        GObject.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
+        Glib.idle_add(self.firmware_progress_bar.set_text, "Verifying...")
+        Glib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
     
     def firmware_pulse(self):
         self.progress_bar_progress += self.progress_bar_step
         # Pulse doesn't work for some unknown reason 
-        # GObject.idle_add(self.firmware_progress_bar.pulse)
-        GObject.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
+        # Glib.idle_add(self.firmware_progress_bar.pulse)
+        Glib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
     
     def firmware_success(self):
         self.firmware_upload_complete = True
@@ -679,7 +679,7 @@ Are you sure that you wish to proceed?""")
     def check_firmware_upload_complete(self):
         
         if not self.is_firmware_update_complete():
-            self.firmware_gui_tag = GObject.timeout_add(1, self.check_firmware_upload_complete)
+            self.firmware_gui_tag = Glib.timeout_add(1, self.check_firmware_upload_complete)
             return
         
         if self.firmware_upload_complete:
@@ -699,6 +699,5 @@ Are you sure that you wish to proceed?""")
 
 if __name__ == '__main__':
 
-    GObject.threads_init()
     app = TncConfigApp()
 
