@@ -7,7 +7,7 @@ import time
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
-from gi.repository import Gtk,GdkPixbuf,GObject,Pango,Gdk,Notify
+from gi.repository import Gtk,Gdk,GLib,GObject,Notify
 
 import serial.tools.list_ports
 
@@ -453,7 +453,7 @@ Are you sure that you wish to proceed?""")
             return
         
         self.firmware_upload_complete = None
-        self.firmware_gui_tag = Glib.idle_add(self.check_firmware_upload_complete)
+        self.firmware_gui_tag = GLib.idle_add(self.check_firmware_upload_complete)
         self.sidebar.set_sensitive(False)
         # print("firmware file =", self.firmware_file)
         self.tnc.upload_firmware(self.firmware_file, self)
@@ -629,16 +629,16 @@ Are you sure that you wish to proceed?""")
         self.save_settings_button.set_sensitive(True)
 
     def do_exception_dialog(self, ex):
-        confirm = Gtk.MessageDialog(self.main_window, 0,
-            Gtk.MessageType.ERROR,
-            Gtk.ButtonsType.OK, str(ex))
+        confirm = Gtk.MessageDialog(parent = self.main_window, flags = 0,
+            message_type = Gtk.MessageType.ERROR,
+            buttons = Gtk.ButtonsType.OK, text = str(ex))
         confirm.set_title("Error")
         confirm.run()
         confirm.destroy()
 
     def exception(self, ex):
         # print(str(ex))
-        Glib.idle_add(self.do_exception_dialog, ex)
+        GLib.idle_add(self.do_exception_dialog, ex)
     
     ### Firmware Update Callbacks
     def is_firmware_update_complete(self):
@@ -647,23 +647,23 @@ Are you sure that you wish to proceed?""")
     def firmware_set_steps(self, steps):
         self.progress_bar_step = 1.0 / steps
         # print("progress bar step: {}".format(self.progress_bar_step))
-        Glib.idle_add(self.firmware_progress_bar.set_pulse_step, self.progress_bar_step)
+        GLib.idle_add(self.firmware_progress_bar.set_pulse_step, self.progress_bar_step)
 
     def firmware_writing(self):
         self.progress_bar_progress = 0.0
-        Glib.idle_add(self.firmware_progress_bar.set_text, "Writing...")
-        Glib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
+        GLib.idle_add(self.firmware_progress_bar.set_text, "Writing...")
+        GLib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
     
     def firmware_verifying(self):
         self.progress_bar_progress = 0.0
-        Glib.idle_add(self.firmware_progress_bar.set_text, "Verifying...")
-        Glib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
+        GLib.idle_add(self.firmware_progress_bar.set_text, "Verifying...")
+        GLib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
     
     def firmware_pulse(self):
         self.progress_bar_progress += self.progress_bar_step
         # Pulse doesn't work for some unknown reason 
-        # Glib.idle_add(self.firmware_progress_bar.pulse)
-        Glib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
+        # GLib.idle_add(self.firmware_progress_bar.pulse)
+        GLib.idle_add(self.firmware_progress_bar.set_fraction, self.progress_bar_progress)
     
     def firmware_success(self):
         self.firmware_upload_complete = True
@@ -673,13 +673,14 @@ Are you sure that you wish to proceed?""")
     
     def firmware_failure(self, msg):
         self.firmware_upload_complete = False
+        self.firmware_upload_msg = msg
         # self.firmware_progress_bar.set_text("Firmware upload failed")
         # self.sidebar.set_sensitive(True)
 
     def check_firmware_upload_complete(self):
         
         if not self.is_firmware_update_complete():
-            self.firmware_gui_tag = Glib.timeout_add(1, self.check_firmware_upload_complete)
+            self.firmware_gui_tag = GLib.timeout_add(1, self.check_firmware_upload_complete)
             return
         
         if self.firmware_upload_complete:
@@ -688,7 +689,7 @@ Are you sure that you wish to proceed?""")
             # self.tnc.disconnect()
         else:
             self.firmware_progress_bar.set_text("Firmware upload failed")
-            Notify.Notification.new("Firmware upload failed: {}".format(msg)).show()
+            Notify.Notification.new("Firmware upload failed: {}".format(self.firmware_upload_msg)).show()
             
         self.tnc.upload_firmware_complete()
         self.sidebar.set_sensitive(True)
