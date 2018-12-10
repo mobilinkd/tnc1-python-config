@@ -7,7 +7,7 @@ try:
     from cx_Freeze import setup, Executable
     freeze = True
 except ImportError:
-    from distutils.core import setup
+    from setuptools import setup
 
 ## Get the site-package folder, not everybody will install
 ## Python into C:\PythonXX
