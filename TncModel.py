@@ -10,6 +10,7 @@ from io import StringIO, BytesIO
 from struct import pack, unpack
 from gi.repository import GLib
 from BootLoader import BootLoader
+from bluetooth import *
 
 class UTC(datetime.tzinfo):
     """UTC"""
@@ -26,6 +27,19 @@ class UTC(datetime.tzinfo):
         return self.ZERO
 
 utc = UTC()
+    
+def get_device_name(devices, address):
+    
+    x = [x[0] for x in devices if x[1] == address]
+    if x:
+        return x[0]
+    else:
+        return None
+        
+def available_devices():
+    
+    rfcomm_devices = find_service(uuid='00001101-0000-1000-8000-00805f9b34fb')
+    return rfcomm_devices
 
 class KissData(object):
 
@@ -210,6 +224,7 @@ class TncModel(object):
     HANDLE_FIRMWARE_VERSION = 40
     HANDLE_HARDWARE_VERSION = 41
     HANDLE_SERIAL_NUMBER = 47       # API 2.0
+    HANDLE_MAC_ADDRESS = 48
     HANDLE_DATE_TIME = 49           # API 2.0
     HANDLE_BLUETOOTH_NAME = 66
     HANDLE_CONNECTION_TRACKING = 70
@@ -229,9 +244,9 @@ class TncModel(object):
     CAP_ADJUST_INPUT = 0x0400
     CAP_DFU_FIRMWARE = 0x0800
 
-    def __init__(self, app, ser):
+    def __init__(self, app, device):
         self.app = app
-        self.serial = ser
+        self.device = device
         self.decoder = KissDecode()
         self.encoder = KissEncode()
         self.ser = None
@@ -252,7 +267,8 @@ class TncModel(object):
         
         try:
             # print("connecting to %s" % self.serial)
-            self.ser = serial.Serial(self.serial, 38400, timeout=.1)
+            self.ser = BluetoothSocket(RFCOMM)
+            self.ser.connect((self.device['host'], self.device['port']))
             # print("connected")
             time.sleep(1)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)
@@ -263,14 +279,14 @@ class TncModel(object):
             self.thd = threading.Thread(target=self.readSerial, args=(self.sio_reader,))
             self.thd.start()
             
-            self.sio_writer.write(self.encoder.encode(self.PTT_OFF))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.PTT_OFF))
+            
             time.sleep(1)
-            self.sio_writer.write(self.encoder.encode(self.GET_ALL_VALUES))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.GET_ALL_VALUES))
+            
             time.sleep(1)
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.STREAM_VOLUME))
+            
 
         except Exception as e:
             self.app.exception(e)
@@ -291,17 +307,17 @@ class TncModel(object):
     def reconnect(self):
         if self.internal_reconnect():
             self.app.tnc_connect()
-            self.sio_writer.write(self.encoder.encode(self.PTT_OFF))
-            self.sio_writer.write(self.encoder.encode(self.GET_ALL_VALUES))
-            self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.PTT_OFF))
+            self.sio_writer.send(self.encoder.encode(self.GET_ALL_VALUES))
+            self.sio_writer.send(self.encoder.encode(self.STREAM_VOLUME))
+            
 
     def internal_disconnect(self):
         self.reading = False
         if self.thd is not None:
             try:
-                self.sio_writer.write(self.encoder.encode(self.POLL_VOLUME))
-                self.sio_writer.flush()
+                self.sio_writer.send(self.encoder.encode(self.POLL_VOLUME))
+                
                 self.thd.join()
                 self.thd = None
             except Exception as e:
@@ -351,6 +367,8 @@ class TncModel(object):
             self.handle_hardware_version(packet)
         elif packet.sub_type == self.HANDLE_SERIAL_NUMBER:
             self.handle_serial_number(packet)
+        elif packet.sub_type == self.HANDLE_MAC_ADDRESS:
+            self.handle_mac_address(packet)
         elif packet.sub_type == self.HANDLE_DATE_TIME:
             self.handle_date_time(packet)
         elif packet.sub_type == self.HANDLE_BLUETOOTH_NAME:
@@ -386,11 +404,12 @@ class TncModel(object):
         # print "reading..."
         while self.reading:
             try:
-                c = sio.read(1)
-                if len(c) == 0: continue
-                packet = self.decoder.process(c[0])
-                if packet is not None:
-                    GLib.idle_add(self.handle_packet, packet)
+                block = sio.recv(20)
+                if len(block) == 0: continue
+                for c in block:
+                    packet = self.decoder.process(c)
+                    if packet is not None:
+                        GLib.idle_add(self.handle_packet, packet)
                     # self.handle_packet(packet)
             except ValueError as e:
                 self.app.exception(e)
@@ -402,6 +421,7 @@ class TncModel(object):
         v = packet.data[0]
         v = max(v, 1)
         volume = math.log(v) / math.log(2)
+        print(volume)
         self.app.tnc_rx_volume(volume)
     
     def handle_tx_volume(self, packet):
@@ -466,6 +486,10 @@ class TncModel(object):
         self.app.tnc_serial_number(packet.data.decode("utf-8"))
         return
     
+    def handle_mac_address(self, packet):
+        self.app.tnc_mac_address(':'.join('{:02X}'.format(a) for a in packet.data))
+        return
+   
     def handle_date_time(self, packet):
     
         def bcd_to_int(value):
@@ -535,133 +559,133 @@ class TncModel(object):
     def set_tx_volume(self, volume):
         try:
             if self.api_version == 0x0100:
-                self.sio_writer.write(self.encoder.encode(self.SET_OUTPUT_VOLUME % volume))
+                self.sio_writer.send(self.encoder.encode(self.SET_OUTPUT_VOLUME % volume))
             else:
-                self.sio_writer.write(self.encoder.encode(pack('>BBh', 6, 1, volume)))
-            self.sio_writer.flush()
+                self.sio_writer.send(self.encoder.encode(pack('>BBh', 6, 1, volume)))
+            
         except Exception as e:
             self.app.exception(e)
 
     def set_tx_twist(self, twist):
         try:
-            self.sio_writer.write(self.encoder.encode(pack('>BBb', 6, 0x1a, twist)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(pack('>BBb', 6, 0x1a, twist)))
+            
         except Exception as e:
             self.app.exception(e)
 
     def set_input_atten(self, value):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_INPUT_ATTEN % (2 * value)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_INPUT_ATTEN % (2 * value)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_squelch_level(self, value):
         """Used to set DCD"""
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_SQUELCH_LEVEL % (value)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_SQUELCH_LEVEL % (value)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_input_gain(self, gain):
         try:
-            self.sio_writer.write(self.encoder.encode(pack('>BBh', 6, 0x2, gain)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(pack('>BBh', 6, 0x2, gain)))
+            
         except Exception as e:
             self.app.exception(e)
 
     def set_input_twist(self, twist):
         try:
-            self.sio_writer.write(self.encoder.encode(pack('>BBb', 6, 0x18, twist)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(pack('>BBb', 6, 0x18, twist)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def adjust_input(self):
         try:
-            self.sio_writer.write(self.encoder.encode(self.ADJUST_INPUT_LEVELS))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.ADJUST_INPUT_LEVELS))
+            
         except Exception as e:
             self.app.exception(e)
 
     def set_tx_delay(self, delay):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_TX_DELAY % delay))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_TX_DELAY % delay))
+            
         except Exception as e:
             self.app.exception(e)
 
     def set_persistence(self, p):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_PERSISTENCE % (p)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_PERSISTENCE % (p)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_time_slot(self, timeslot):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_TIME_SLOT % (timeslot)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_TIME_SLOT % (timeslot)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_tx_tail(self, tail):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_TX_TAIL % (tail)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_TX_TAIL % (tail)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_duplex(self, value):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_DUPLEX % (value)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_DUPLEX % (value)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_conn_track(self, value):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_BT_CONN_TRACK % (value)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_BT_CONN_TRACK % (value)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_verbosity(self, value):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_VERBOSITY % (value)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_VERBOSITY % (value)))
+            
         except Exception as e:
             self.app.exception(e)
     
     def set_usb_on(self, value):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_USB_POWER_ON % chr(value)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_USB_POWER_ON % chr(value)))
+            
         except Exception as e:
             self.app.exception(e)
         
     def set_usb_off(self, value):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_USB_POWER_OFF % (value)))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_USB_POWER_OFF % (value)))
+            
         except Exception as e:
             self.app.exception(e)
         
     
     def save_eeprom_settings(self):
         try:
-            self.sio_writer.write(self.encoder.encode(self.SAVE_EEPROM_SETTINGS))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SAVE_EEPROM_SETTINGS))
+            
         except Exception as e:
             self.app.exception(e)
 
     def set_ptt_channel(self, value):
         
         try:
-            self.sio_writer.write(self.encoder.encode(self.SET_PTT_CHANNEL % int(value)))
-            self.sio_writer.write(self.encoder.encode(self.GET_PTT_CHANNEL))
-            self.sio_writer.flush()
+            self.sio_writer.send(self.encoder.encode(self.SET_PTT_CHANNEL % int(value)))
+            self.sio_writer.send(self.encoder.encode(self.GET_PTT_CHANNEL))
+            
         except Exception as e:
             self.app.exception(e)
     
@@ -687,26 +711,26 @@ class TncModel(object):
         try:
             if value and self.tone != self.TONE_NONE:
                 if self.tone == self.TONE_MARK:
-                    self.sio_writer.write(self.encoder.encode(self.PTT_MARK))
+                    self.sio_writer.send(self.encoder.encode(self.PTT_MARK))
                 elif self.tone == self.TONE_SPACE:
-                    self.sio_writer.write(self.encoder.encode(self.PTT_SPACE))
+                    self.sio_writer.send(self.encoder.encode(self.PTT_SPACE))
                 elif self.tone == self.TONE_BOTH:
-                    self.sio_writer.write(self.encoder.encode(self.PTT_BOTH))
+                    self.sio_writer.send(self.encoder.encode(self.PTT_BOTH))
             else:
-                self.sio_writer.write(self.encoder.encode(self.PTT_OFF))
+                self.sio_writer.send(self.encoder.encode(self.PTT_OFF))
         
-            self.sio_writer.flush()
+            
         except Exception as e:
             self.app.exception(e)
     
     def stream_audio_on(self):
-        self.sio_writer.write(self.encoder.encode(self.STREAM_VOLUME))
+        self.sio_writer.send(self.encoder.encode(self.STREAM_VOLUME))
     
     def stream_audio_off(self):
-        self.sio_writer.write(self.encoder.encode(self.POLL_VOLUME))
+        self.sio_writer.send(self.encoder.encode(self.POLL_VOLUME))
 
     def get_battery_level(self):
-        self.sio_writer.write(self.encoder.encode(self.GET_BATTERY_LEVEL))
+        self.sio_writer.send(self.encoder.encode(self.GET_BATTERY_LEVEL))
 
     def upload_firmware_thd(self, filename, gui):
 
@@ -741,6 +765,6 @@ class TncModel(object):
         self.firmware_thd.join()
         time.sleep(5)
         self.internal_reconnect()
-        self.sio_writer.write(self.encoder.encode(self.GET_ALL_VALUES))
+        self.sio_writer.send(self.encoder.encode(self.GET_ALL_VALUES))
 
 

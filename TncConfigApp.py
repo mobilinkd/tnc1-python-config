@@ -4,6 +4,7 @@ import sys
 import os
 import gi
 import time
+import threading
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
@@ -11,7 +12,7 @@ from gi.repository import Gtk,Gdk,GLib,GObject,Notify
 
 import serial.tools.list_ports
 
-from TncModel import TncModel
+from TncModel import TncModel, available_devices
 
 def glade_location():
 
@@ -27,7 +28,7 @@ def glade_location():
         
 class TncConfigApp(object):
 
-    def __init__(self):
+    def __init__(self, device_path=None):
         self.tnc = None
         self.device_path = None
         self.connect_message = None
@@ -56,7 +57,6 @@ class TncConfigApp(object):
         self.sidebar = self.builder.get_object("config_sidebar")
         self.sidebar.set_sensitive(False)
 
-        self.init_serial_port_combobox()
         self.init_audio_input_frame()
         self.init_audio_output_frame()
         self.init_power_settings_frame()
@@ -67,6 +67,7 @@ class TncConfigApp(object):
         self.init_save_settings_frame()
 
         self.builder.connect_signals(self)
+        self.init_serial_port_combobox(device_path)
         
         self.main_window.show()
          
@@ -93,28 +94,98 @@ class TncConfigApp(object):
 
     ### Main UI Section
     
-    def init_serial_port_combobox(self):
+    def get_available_device(self, host):
+        
+        result = [x for x in self.available_devices if x['host'] == host]
+        if result:
+            return result[0]
+        else:
+            return None
+    
+    def on_scan_complete(self, device = None):
+        
+        self.scan_thd.join()
+        self.serial_port_combo_box_text.remove_all()
+        self.serial_port_combo_box_text.set_active(-1)
+        self.device = None
+        
+        index = 0
+        active = -1
+        for dev in self.available_devices:
+            self.serial_port_combo_box_text.append(
+                dev['host'], '{} - {}'.format(dev['name'], dev['host']))
+            self.connect_button.set_sensitive(True)
+            if device is not None and device == dev['host']:
+                self.serial_port_combo_box_text.set_active(index)
+                active = index
+                self.device = dev
+            index += 1
+
+        if active == -1 and self.available_devices:
+            self.serial_port_combo_box_text.set_active(0)
+            self.serial_port_combo_box_text.set_sensitive(True)
+            
+        self.refresh_spinner.stop()
+        self.connect_button.set_sensitive(True)
+        self.refresh_button.set_sensitive(True)
+        
+        if self.device is not None:
+            self.refresh_button.set_sensitive(False)
+            self.connect_button.set_active(True)
+            self.tnc = TncModel(self, self.device)
+            self.tnc.connect()
+
+    def scan_for_devices(self, device):
+        
+        self.available_devices = available_devices()
+        GLib.idle_add(self.on_scan_complete, device)
+    
+    def init_serial_port_combobox(self, device):
+        
         self.connect_button = self.builder.get_object("connect_button")
         self.connect_button.set_sensitive(False)
+        self.refresh_button = self.builder.get_object("refresh_button")
+        self.refresh_button.set_sensitive(False)
+        self.refresh_spinner = self.builder.get_object("refresh_spinner")
+        self.serial_port_combo_box = self.builder.get_object("serial_port_combo_box")
         self.serial_port_combo_box_text = self.builder.get_object("serial_port_combo_box_text")
         assert(self.serial_port_combo_box_text is not None)
-        for port in serial.tools.list_ports.comports():
-            self.serial_port_combo_box_text.append_text(port[0])
+        self.serial_port_combo_box_text.append(None, "Scanning for devices...")
+        self.serial_port_combo_box_text.set_active(0)
+        self.serial_port_combo_box_text.set_sensitive(False)
+        self.scan_thd = threading.Thread(target=self.scan_for_devices, args=(device,))
+        self.scan_thd.start()
+        self.refresh_spinner.start()
         
     def on_connect_button_toggled(self, widget):
     
         if widget.get_active():
-            self.tnc = TncModel(self, self.device_path)
+            self.refresh_button.set_sensitive(False)
+            host = self.serial_port_combo_box_text.get_active_id()
+            self.device = self.get_available_device(host)
+            self.tnc = TncModel(self, self.device)
             self.tnc.connect()
         elif self.tnc is not None:   # Possible race condition here...
             self.tnc.disconnect()
             self.tnc = None
-            
+            self.refresh_button.set_sensitive(True)
+    
+    def on_refresh_button_clicked(self, widget):
+        
+        self.connect_button.set_sensitive(False)
+        self.refresh_button.set_sensitive(False)
+        self.serial_port_combo_box_text.remove_all()
+        self.serial_port_combo_box_text.append(None, "Scanning for devices...")
+        self.serial_port_combo_box_text.set_active(0)
+        self.serial_port_combo_box_text.set_sensitive(False)
+        self.scan_thd = threading.Thread(target=self.scan_for_devices, args=(None,))
+        self.scan_thd.start()
+        self.refresh_spinner.start()
+        
     
     def on_serial_port_combo_box_changed(self, widget, data = None):
         
-        self.device_path = widget.get_active_text()
-        self.connect_button.set_sensitive(True)
+        pass
     
     ### GtkStack
     def on_config_stack_visible_child_name_notify(self, widget, param):
@@ -497,7 +568,7 @@ Are you sure that you wish to proceed?""")
 
     ### Audio Input
     def tnc_rx_volume(self, value):
-        self.audio_input_level_bar.set_value(value * 1.25)
+        self.audio_input_level_bar.set_value(min(10, int(value * 1.25 + .5)))
     
     def tnc_input_atten(self, value):
         self.input_attenuation_box.set_visible(True)
@@ -700,5 +771,8 @@ Are you sure that you wish to proceed?""")
 
 if __name__ == '__main__':
 
-    app = TncConfigApp()
+    device_path = None
+    if len(sys.argv) > 1:
+        device_path = sys.argv[1]
+    app = TncConfigApp(device_path)
 
