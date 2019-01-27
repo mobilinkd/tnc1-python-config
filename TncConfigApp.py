@@ -6,6 +6,14 @@ import gi
 import time
 import threading
 
+# On Windows, when using cx_Freeze, the location of the typelib files are moved
+# to a non-standard location.  The GI_TYPELIB_PATH environment variable needs
+# to be set to compensate for this.
+if os.name == 'nt':
+    frozen_path = os.path.join(os.path.dirname(sys.executable), "Lib", "girepository-1.0")
+    if os.path.exists(frozen_path):
+        os.environ['GI_TYPELIB_PATH'] = frozen_path
+
 gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
 from gi.repository import Gtk,Gdk,GLib,GObject,Notify
@@ -41,9 +49,12 @@ class TncConfigApp(object):
         # settings.set_property("gtk-font-name", "Cantarell")
         # settings.set_property("gtk-icon-theme-name", "Oxygen")
 
+        # The version of GTK+ available to us on Windows is rather old and requires
+        # a different CSS file.
         cssProvider = Gtk.CssProvider()
         if os.name == 'nt':
             cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp-win.css'))
+            os.environ['GI_TYPELIB_PATH']=os.path.join(os.path.dirname(sys.executable), "Lib", "girepository-1.0")
         else:
             cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp.css'))
             
