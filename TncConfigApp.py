@@ -42,7 +42,11 @@ class TncConfigApp(object):
         # settings.set_property("gtk-icon-theme-name", "Oxygen")
 
         cssProvider = Gtk.CssProvider()
-        cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp.css'))
+        if os.name == 'nt':
+            cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp-win.css'))
+        else:
+            cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp.css'))
+            
         Gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(),
             cssProvider,

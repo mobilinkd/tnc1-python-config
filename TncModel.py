@@ -315,7 +315,8 @@ class TncModel(object):
         self.reading = False
         if self.thd is not None:
             try:
-                self.sio_writer.send(self.encoder.encode(self.POLL_VOLUME))
+                if self.sio_writer is not None:
+                    self.sio_writer.send(self.encoder.encode(self.POLL_VOLUME))
                 
                 self.thd.join()
                 self.thd = None
@@ -323,11 +324,10 @@ class TncModel(object):
                 self.app.exception(e)
 
     def disconnect(self):
-        if self.ser is None and self.thd is None: return
         
         self.internal_disconnect()
-        self.app.tnc_disconnect()
-        self.ser.close()
+        if self.app is not None: self.app.tnc_disconnect()
+        if self.ser is not None: self.ser.close()
         self.ser = None
         self.sio_writer = None
         self.sio_reader = None
