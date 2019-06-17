@@ -20,31 +20,57 @@ cx_freeze.
 Windows Build
 =============
 
-*** Windows builds currently must be 32-bit due to PyGObject ***
+The Windows environment for Python is a bit messed up at this point in time.
+The official Python releases for Windows and PyGobject for Windows have
+diverged and use incompatible builds.  PyBluez, which requires the official
+Python release build, cannot be used with a modern version of PyGobject,
+which only builds on MSYS2 versions of Python.
 
-Read this for background on pygobject: https://wiki.gnome.org/PyGObject
+To add insult to this, building binary packages on Windows for the official
+Python builds require older, non-free versions of Microsoft compilers and
+SDKs, many of which are not readily available unless one has an MSDN
+subscription.
 
-Install 32-bit Python 2.7.5 from here: http://www.python.org/getit/
+We're stuck with a compromise using really old versions of Python and
+PyGObject.
 
-pygobject3 on Windows is only packaged for 32-bit installs.
+Another issue is that PyBluez is no longer actively maintained.
+
+Finally, the cx_Freeze module we rely on to create the MSI installer
+appears to just grab all of the installed Gnome files and package them
+in the binary, needed or not.  Essentially this grabs everything that
+was installed by PyGObject.  This creates a rather large MSI file
+filled with quite a lot of unneeded and unused content.  I have found
+no way to exclude these.
+
+----
+
+With that out of the way, here is how to build and package this software
+on Windows:
+
+Install 64-bit Python 2.7.15 from here:
+https://www.python.org/downloads/release/python-2715/1
 
 Install pygobject3 for Windows from here:
-https://code.google.com/p/osspack32/downloads/detail?name=pygi-aio-3.4.2rev11.7z&can=2&q=/
+https://sourceforge.net/projects/pygobjectwin32/files/pygi-aio-3.24.1_rev1-setup_049a323fe25432b10f7e9f543b74598d4be74a39.exe/download
 
-Make sure you follow the installation instructions in the README.
-Importantly, the top-level gtk directory needs to be copied over the py27/gtk
-directory.
+Install cx_Freeze:
+python -m pip install cx_Freeze
 
-Install cx_freeze for 32-bit Python 2.7 from SourceForge:
-http://sourceforge.net/projects/cx-freeze/files/4.3.2/cx_Freeze-4.3.2.win32-py2.7.msi/download
+Install Visual Studio for Python 2.7:
+https://www.microsoft.com/en-us/download/details.aspx?id=44266
 
-Install pip-Win by installing and executing this package:
-https://bitbucket.org/pcarbonn/pipwin/downloads/pip-Win_1.6.exe
+This is needed to build PyBluez on Windows.
 
-Using pip-Win to install pyserial.
+Install PyBluez:
+python -m pip install PyBluez
+
+The upgrade code is e6e4c96d-2b0a-4695-a754-efac18a2e923.  This allows packages
+with the same code to replace older versions.  If you fork this code, please
+change the UUID used for the upgrade code.
 
 Execute the following to generate the Windows MSI for the package:
-C:\Python27\python.exe setup.py bdist_msi
+C:\Python27\python.exe setup.py bdist_msi --upgrade-code e6e4c96d-2b0a-4695-a754-efac18a2e923
 
 Linux Build
 ===========
