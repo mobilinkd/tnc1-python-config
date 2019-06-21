@@ -19,7 +19,24 @@ include_dll_path = os.path.join(site_dir, "gnome")
 glade_folder = 'glade'
 
 ## We need to add all the libraries too (for themes, etc..)
-gtk_libs = ['etc', 'lib', 'share']
+gtk_libs = [
+    'etc',
+    'lib/gdbus-2.0',
+    'lib/gdk-pixbuf-2.0',
+    'lib/gio',
+    'lib/girepository-1.0',
+    'lib/glade',
+    'lib/gtk-3.0',
+    'share/dbus-1',
+    'share/fontconfig',
+    'share/fonts',
+    'share/gir-1.0',
+    'share/glade',
+    'share/glib-2.0',
+    'share/icons/Adwaita',
+    'share/themes/Adwaita',
+    # 'share/locale'
+    ]
 
 ## Create the list of includes as cx_freeze likes
 include_files = []
@@ -58,12 +75,12 @@ py_modules = ['Avr109', 'BootLoader', 'IntelHexRecord', 'TncModel']
 buildOptions = dict(
     includes = ["gi"],
     packages = ["gi"],
-    include_files = include_files,
+    include_files = ['glade'],
     )
 
 setup(
     name = "TncConfigApp",
-    version = "1.1.1",
+    version = "1.1.2",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
