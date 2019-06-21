@@ -1899,6 +1899,45 @@
                     <property name="position">7</property>
                   </packing>
                 </child>
+                <child>
+                  <object class="GtkFrame" id="about_frame">
+                    <property name="name">about_frame</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label_xalign">0</property>
+                    <property name="shadow_type">none</property>
+                    <child>
+                      <object class="GtkAlignment">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="left_padding">12</property>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">&lt;span foreground="blue" size="x-large"&gt;TncConfigApp&lt;/span&gt;
+&lt;span foreground="blue" size="medium"&gt;Serial Port Variant&lt;/span&gt;
+&lt;span font_weight="bold"&gt;Version 1.0.1&lt;/span&gt;
+2019-06-20
+Copyright 2019 Mobilinkd LLC</property>
+                            <property name="use_markup">True</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child type="label">
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">about</property>
+                    <property name="title" translatable="yes">About...</property>
+                    <property name="position">8</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="expand">True</property>
