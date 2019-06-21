@@ -17,7 +17,7 @@ class SocketReader(object):
         start = time.time()
         data = bytearray(bytes())
         self.sock.settimeout(self.timeout)
-        while self.timeout is not None or start + self.timeout > time.time():
+        while self.timeout is None or start + self.timeout > time.time():
             ready = select.select([self.sock], [], [], self.timeout)
             if ready[0]:
                 data += self.sock.recv(size - len(data))
