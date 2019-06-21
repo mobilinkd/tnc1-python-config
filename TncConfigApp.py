@@ -170,7 +170,7 @@ class TncConfigApp(object):
     
     def on_audio_input_enter(self):
         self.last_audio_input_update_time = 0
-        if self.tnc is not None:
+        if self.tnc is not None and self.connect_button.get_active():
             self.tnc.stream_audio_on()
         
     def on_audio_input_leave(self):
