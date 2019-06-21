@@ -88,12 +88,12 @@ buildOptions = dict(
 
 setup(
     name = "TncConfigApp",
-    version = "1.0.0",
+    version = "1.0.1",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
     license = "Apache 2.0",
-    description = "Configuration tool for Mobilinkd TNC1, TNC2 and TNC3",
+    description = "Configuration tool for Mobilinkd TNC1, TNC2 and TNC3 (serial version)",
     long_description = 
 """This program is used to connect to a Mobilinkd TNC via Bluetooth SPP
 (serial port) and is used to set the transmit volume level, monitor receive
