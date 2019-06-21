@@ -80,6 +80,7 @@ class TncConfigApp(object):
         self.init_tnc_information_frame()
         self.init_update_firmware_frame()
         self.init_save_settings_frame()
+        self.init_about_frame()
 
         self.builder.connect_signals(self)
         self.init_serial_port_combobox(device_path)
@@ -87,7 +88,8 @@ class TncConfigApp(object):
         self.main_window.show()
          
         self.visible_frame=None
-        self.change_visible_frame('audio_input')
+        self.change_visible_frame('about')
+        self.stack.set_visible_child_name('about')
 
         Notify.init("TncConfigApp")
         Gtk.main()
@@ -562,7 +564,19 @@ Are you sure that you wish to proceed?""")
     def on_save_settings_button_clicked(self, widget):
         self.tnc.save_eeprom_settings()
 
-    ### TNC events
+    def init_about_frame(self):
+        self.about_frame = self.builder.get_object("about_frame")
+        self.about_frame.set_visible(True)
+
+    def on_about_enter(self):
+        # print('on_save_settings_leave')
+        pass
+
+    def on_about_leave(self):
+        # print('on_save_settings_leave')
+        pass
+    
+### TNC events
     
     def tnc_connect(self):
         self.stack.set_visible_child_name('audio_input')
@@ -573,7 +587,7 @@ Are you sure that you wish to proceed?""")
         self.firmware_progress_bar.set_text("Select firmware image...")
 
     def tnc_disconnect(self):
-        self.stack.set_visible_child_name('audio_input')
+        self.stack.set_visible_child_name('about')
         self.stack.set_sensitive(False)
         self.sidebar.set_sensitive(False)
         self.serial_port_combo_box_text.set_sensitive(True)
