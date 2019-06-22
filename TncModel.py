@@ -170,7 +170,7 @@ class TncModel(object):
     
     GET_BATTERY_LEVEL = bytes(b'\06\06')
     
-    SET_OUTPUT_VOLUME=bytes(b'\06\01%c')
+    SET_OUTPUT_VOLUME=bytes(b'\x06\x01%c')
     SET_OUTPUT_GAIN=bytes(b'\x06\x01%c%c')     # API 2.0, 16-bit signed
     SET_INPUT_TWIST=bytes(b'\x06\x18\%s')      # API 2.0, 0-100
     SET_OUTPUT_TWIST=bytes(b'\x06\x1a\%c')     # API 2.0, 0-100
@@ -426,7 +426,7 @@ class TncModel(object):
         v = packet.data[0]
         v = max(v, 1)
         volume = math.log(v) / math.log(2)
-        print(volume)
+        # print(volume)
         self.app.tnc_rx_volume(volume)
     
     def handle_tx_volume(self, packet):
@@ -564,17 +564,21 @@ class TncModel(object):
     def set_tx_volume(self, volume):
         try:
             if self.api_version == 0x0100:
-                self.sio_writer.send(self.encoder.encode(self.SET_OUTPUT_VOLUME % volume))
+                self.sio_writer.send(
+                    self.encoder.encode(bytes(pack('>BBB', 6, 1, volume))))
             else:
-                self.sio_writer.send(self.encoder.encode(pack('>BBh', 6, 1, volume)))
+                self.sio_writer.send(
+                    self.encoder.encode(bytes(pack('>BBh', 6, 1, volume))))
             
         except Exception as e:
+            print("volume={}".format(volume))
+            raise
             self.app.exception(e)
 
     def set_tx_twist(self, twist):
         if self.sio_writer is None: return
         try:
-            self.sio_writer.send(self.encoder.encode(pack('>BBb', 6, 0x1a, twist)))
+            self.sio_writer.send(self.encoder.encode(bytes(pack('>BBB', 6, 0x1a, twist))))
             
         except Exception as e:
             self.app.exception(e)
@@ -598,7 +602,7 @@ class TncModel(object):
     def set_input_gain(self, gain):
         if self.sio_writer is None: return
         try:
-            self.sio_writer.send(self.encoder.encode(pack('>BBh', 6, 0x2, gain)))
+            self.sio_writer.send(self.encoder.encode(bytes(pack('>BBh', 6, 0x2, gain))))
             
         except Exception as e:
             self.app.exception(e)
@@ -606,7 +610,7 @@ class TncModel(object):
     def set_input_twist(self, twist):
         if self.sio_writer is None: return
         try:
-            self.sio_writer.send(self.encoder.encode(pack('>BBb', 6, 0x18, twist)))
+            self.sio_writer.send(self.encoder.encode(bytes(pack('>BBb', 6, 0x18, twist))))
             
         except Exception as e:
             self.app.exception(e)
