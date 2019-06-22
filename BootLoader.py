@@ -105,7 +105,7 @@ class BootLoader(object):
         #         print "    Has block-mode: %s (size = %d)" % (str(self.block_size > 0), self.block_size)
         #         print "  Device Signature: %02x %02x %02x" % (ord(self.signature[0]),ord(self.signature[1]),ord(self.signature[2]))
         
-        if self.signature != b'\x0f\x95\x1e' and self.signature != b'\x16\x95\x1e':
+        if self.signature != bytes(b'\x0f\x95\x1e') and self.signature != bytes(b'\x16\x95\x1e'):
             self.avr109.exit_bootloader()
             raise ValueError("Bad device signature. Not an AVR ATmega 328P. {}".format(self.signature))
         if not self.auto_increment:
