@@ -528,12 +528,18 @@ class TncConfigApp(object):
         self.upload_button.set_sensitive(True)
 
     def on_upload_button_clicked(self, widget, data=None):
-        confirm = Gtk.MessageDialog(self.main_window, 0,
-            Gtk.MessageType.WARNING,
-            Gtk.ButtonsType.OK_CANCEL,
-            """You are about to upload a firmware image to the TNC.  This is irreversible and a potentially damaging operation.  Please ensure that the TNC is plugged into USB power and that a valid firmware image for the device has been selected.
-            
-Are you sure that you wish to proceed?""")
+
+        confirm = Gtk.MessageDialog(
+            parent=self.main_window, flags=0,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.OK_CANCEL,
+            text="".join([
+                'You are about to upload a firmware image to the TNC.  ',
+                'This is irreversible and a potentially damaging operation.  ',
+                'Please ensure that the TNC is plugged into USB power and ',
+                'that a valid firmware image for the device has been selected.',
+                '\n\nAre you sure that you wish to proceed?']))
+        
         confirm.set_title("Confirm Firmware Upload")
         response = confirm.run()
         confirm.destroy()
@@ -777,6 +783,29 @@ Are you sure that you wish to proceed?""")
         # self.firmware_progress_bar.set_text("Firmware upload failed")
         # self.sidebar.set_sensitive(True)
 
+    def firmware_success_dialog(self):
+        
+        notify = Gtk.MessageDialog(
+            parent = self.main_window, flags = 0,
+            message_type = Gtk.MessageType.INFO,
+            buttons = Gtk.ButtonsType.OK,
+            text = "Firmware upload complete")
+        notify.set_title("Firmware Update")
+        notify.run()
+        notify.destroy()
+
+    def firmware_failure_dialog(self):
+        
+        notify = Gtk.MessageDialog(
+            parent = self.main_window, flags = 0,
+            message_type = Gtk.MessageType.ERROR,
+            buttons = Gtk.ButtonsType.OK,
+            text = "Firmware upload failed: {}".format(
+                self.firmware_upload_msg))
+        notify.set_title("Firmware Update")
+        notify.run()
+        notify.destroy()
+
     def check_firmware_upload_complete(self):
         
         if not self.is_firmware_update_complete():
@@ -785,17 +814,16 @@ Are you sure that you wish to proceed?""")
         
         if self.firmware_upload_complete:
             self.firmware_progress_bar.set_text("Firmware upload complete")
-            Notify.Notification.new("Firmware upload complete").show()
+            self.firmware_success_dialog()
             # self.tnc.disconnect()
         else:
             self.firmware_progress_bar.set_text("Firmware upload failed")
-            Notify.Notification.new("Firmware upload failed: {}".format(self.firmware_upload_msg)).show()
+            self.firmware_failure_dialog()
             
         self.tnc.upload_firmware_complete()
+        self.stack.set_visible_child_name('audio_input')
+        self.stack.set_sensitive(True)
         self.sidebar.set_sensitive(True)
-            
-
-        
 
 
 if __name__ == '__main__':
