@@ -5,6 +5,14 @@ import os
 import gi
 import time
 
+# On Windows, when using cx_Freeze, the location of the typelib files are moved
+# to a non-standard location.  The GI_TYPELIB_PATH environment variable needs
+# to be set to compensate for this.
+if os.name == 'nt':
+    frozen_path = os.path.join(os.path.dirname(sys.executable), "Lib", "girepository-1.0")
+    if os.path.exists(frozen_path):
+        os.environ['GI_TYPELIB_PATH'] = frozen_path
+
 gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
 from gi.repository import Gtk,Gdk,GLib,GObject,Notify
@@ -27,7 +35,7 @@ def glade_location():
         
 class TncConfigApp(object):
 
-    def __init__(self):
+    def __init__(self, device_path=None):
         self.tnc = None
         self.device_path = None
         self.connect_message = None
@@ -40,8 +48,13 @@ class TncConfigApp(object):
         # settings.set_property("gtk-font-name", "Cantarell")
         # settings.set_property("gtk-icon-theme-name", "Oxygen")
 
+        # The version of GTK+ available to us on Windows is rather old and requires
+        # a different CSS file.
         cssProvider = Gtk.CssProvider()
-        cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp.css'))
+        if os.name == 'nt':
+            cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp-win.css'))
+        else:
+            cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp.css'))
         Gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(),
             cssProvider,
@@ -56,7 +69,6 @@ class TncConfigApp(object):
         self.sidebar = self.builder.get_object("config_sidebar")
         self.sidebar.set_sensitive(False)
 
-        self.init_serial_port_combobox()
         self.init_audio_input_frame()
         self.init_audio_output_frame()
         self.init_power_settings_frame()
@@ -68,6 +80,7 @@ class TncConfigApp(object):
         self.init_about_frame()
 
         self.builder.connect_signals(self)
+        self.init_serial_port_combobox()
         
         self.main_window.show()
          
@@ -517,7 +530,7 @@ class TncConfigApp(object):
 
     ### Audio Input
     def tnc_rx_volume(self, value):
-        self.audio_input_level_bar.set_value(value * 1.25)
+        self.audio_input_level_bar.set_value(min(10, int(value * 1.25 + .5)))
     
     def tnc_input_atten(self, value):
         self.input_attenuation_box.set_visible(True)

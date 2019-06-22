@@ -1,0 +1,60 @@
+@define-color level_bar_low red;
+@define-color level_bar_medium orange;
+@define-color level_bar_high green;
+
+
+.audio_input_level_bar-high {
+    background-color: @level_bar_high;
+    border-color: darker(@level_bar_high);
+    background-image: none;
+}
+
+.audio_input_level_bar-low {
+    background-color: @level_bar_low;
+    border-color: darker(@level_bar_low);
+    background-image: none;
+}
+
+.audio_input_level_bar-medium {
+    background-color: @level_bar_medium;
+    border-color: darker(@level_bar_medium);
+    background-image: none;
+}
+
+
+.battery_level_bar-high {
+    background-color: @level_bar_high;
+    border-color: darker(@level_bar_high);
+    background-image: none;
+}
+
+.battery_level_bar-low {
+    background-color: @level_bar_low;
+    border-color: darker(@level_bar_low);
+    background-image: none;
+}
+
+.battery_level_bar-medium {
+    background-color: @level_bar_medium;
+    border-color: darker(@level_bar_medium);
+    background-image: none;
+}
+
+/*
+ * Windows has an old version of PyGObject and GTK+ where these do
+ * not exist and this (rather surprisingly) is a fatal error.
+ * 
+progressbar trough {
+    min-height: 16px;
+}
+
+progressbar progress {
+    min-height: 16px;
+}
+ */
+
+progressbar text {
+    font-size: 16pt;
+    color: blue;
+    font-weight: bold;
+}
