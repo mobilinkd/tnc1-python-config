@@ -3,6 +3,7 @@
 from builtins import bytes
 import time
 import select
+from struct import pack
 
 class SocketReader(object):
     
@@ -23,7 +24,8 @@ class SocketReader(object):
                 data += self.sock.recv(size - len(data))
                 if len(data) == size: return data
             else:
-                print("timed out")
+                # print("timed out")
+                pass
         
         return data
 
@@ -36,7 +38,7 @@ class SocketWriter(object):
     
     def send(self, data):
         
-        print("sending %d bytes" % len(data))
+        # print("sending %d bytes" % len(data))
         
         total = 0
         start = time.time()
@@ -71,7 +73,7 @@ class Avr109(object):
         address //= 2 # convert from byte to word address
         ah = (address & 0xFF00) >> 8
         al = address & 0xFF
-        self.sio_writer.send(bytes([b'A', ah, al]))
+        self.sio_writer.send(bytes(pack('cBB', b'A', ah, al)))
         
         self.verify_command_sent("Set address to: %04x" % address)
     
@@ -95,12 +97,12 @@ class Avr109(object):
         
         for _ in range(5):
             try:
-                self.sio_writer.send(bytes([b'B', ah, al, memtype]))
+                self.sio_writer.send(bytes(pack('cBBc', b'B', ah, al, memtype)))
                 self.sio_writer.send(data)
                 self.verify_command_sent("Block load: %d" % len(data))
                 return
             except Exception as ex:
-                print(ex)
+                # print(ex)
                 e = ex
         else:
             if e is not None: raise e
@@ -116,7 +118,7 @@ class Avr109(object):
             'F' is for flash.
         @param size is the size of the block to read."""
                 
-        self.sio_writer.send(bytes([b'g', 0, size, memtype]))
+        self.sio_writer.send(bytes(pack('cBBc', b'g', 0, size, memtype)))
         
         self.sio_reader.timeout = 5.0
         result = self.sio_reader.recv(size)
@@ -139,7 +141,7 @@ class Avr109(object):
             raise IOError("programmer did not respond to command: %s (%d: %s)" % (cmd, len(c), str(c)))
         else:
             pass
-            print("programmer success: %s" % cmd)
+            # print("programmer success: %s" % cmd)
     
     def chip_erase(self):
         time.sleep(.1)
@@ -149,7 +151,7 @@ class Avr109(object):
     
     def enter_program_mode(self):
         time.sleep(.1)
-        self.sio_writer.send(bytes(b'P'))
+        self.sio_writer.send(bytes( b'P'))
         
         self.verify_command_sent("enter program mode")
         

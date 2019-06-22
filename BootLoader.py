@@ -140,7 +140,7 @@ class BootLoader(object):
                 size = len(segment)
                 while pos < size:
                     tmp = bytes(segment.data[pos:pos + self.block_size])
-                    print("sending %04x: %03x" % (pos + segment.address, len(tmp)))
+                    # print("sending %04x: %03x" % (pos + segment.address, len(tmp)))
                     self.avr109.send_block(b'F', tmp)
                     pos += self.block_size
                     if self.gui is not None:
@@ -167,8 +167,8 @@ class BootLoader(object):
                 size = len(segment)
                 while pos < size:
                     tmp = bytearray(segment.data[pos:pos + self.block_size])
-                    print("reading %04x" % (pos + segment.address))
-                    block = self.avr109.read_block('F', len(tmp))
+                    # print("reading %04x" % (pos + segment.address))
+                    block = self.avr109.read_block(b'F', len(tmp))
                     if tmp != block:
                         print(binascii.hexlify(tmp))
                         print(binascii.hexlify(block))
