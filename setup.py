@@ -75,7 +75,7 @@ py_modules = ['Avr109', 'BootLoader', 'IntelHexRecord', 'TncModel']
 buildOptions = dict(
     includes = ["gi"],
     packages = ["gi"],
-    include_files = ['glade'],
+    include_files = include_files,
     )
 
 setup(
