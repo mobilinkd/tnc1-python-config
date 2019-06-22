@@ -20,31 +20,21 @@ cx_freeze.
 Windows Build
 =============
 
-*** Windows builds currently must be 32-bit due to PyGObject ***
-
-Read this for background on pygobject: https://wiki.gnome.org/PyGObject
-
-Install 32-bit Python 2.7.5 from here: http://www.python.org/getit/
-
-pygobject3 on Windows is only packaged for 32-bit installs.
+Install 64-bit Python 2.7.15 from here:
+https://www.python.org/downloads/release/python-2715/1
 
 Install pygobject3 for Windows from here:
-https://code.google.com/p/osspack32/downloads/detail?name=pygi-aio-3.4.2rev11.7z&can=2&q=/
+https://sourceforge.net/projects/pygobjectwin32/files/pygi-aio-3.24.1_rev1-setup_049a323fe25432b10f7e9f543b74598d4be74a39.exe/download
 
-Make sure you follow the installation instructions in the README.
-Importantly, the top-level gtk directory needs to be copied over the py27/gtk
-directory.
+Install cx_Freeze:
+python -m pip install cx_Freeze
 
-Install cx_freeze for 32-bit Python 2.7 from SourceForge:
-http://sourceforge.net/projects/cx-freeze/files/4.3.2/cx_Freeze-4.3.2.win32-py2.7.msi/download
-
-Install pip-Win by installing and executing this package:
-https://bitbucket.org/pcarbonn/pipwin/downloads/pip-Win_1.6.exe
-
-Using pip-Win to install pyserial.
+Install pyserial:
+python -m pip install pyserial
 
 Execute the following to generate the Windows MSI for the package:
-C:\Python27\python.exe setup.py bdist_msi
+python setup.py bdist_msi --upgrade-code e6e4c96d-2b0b-4695-a754-efac18a2e923
+
 
 Linux Build
 ===========
@@ -55,7 +45,7 @@ python3-3.6.6-1.fc28.x86_64
 python3-pyserial-3.1.1-6.fc28.noarch
 python3-gobject-3.28.3-1.fc28.x86_64
 
-./setup.py bdist_rpm
+./setup.py bdist_rpm 
 
 Will build an RPM that can be installed.
 
