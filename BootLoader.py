@@ -140,7 +140,7 @@ class BootLoader(object):
                 while pos < size:
                     tmp = segment.data[pos:pos + self.block_size]
                     # print("sending %04x" % (pos + segment.address))
-                    self.avr109.send_block('F', tmp)
+                    self.avr109.send_block(b'F', tmp)
                     pos += self.block_size
                     if self.gui is not None:
                         self.gui.firmware_pulse()
@@ -167,7 +167,7 @@ class BootLoader(object):
                 while pos < size:
                     tmp = bytearray(segment.data[pos:pos + self.block_size])
                     # print("reading %04x" % (pos + segment.address))
-                    block = self.avr109.read_block('F', len(tmp))
+                    block = self.avr109.read_block(b'F', len(tmp))
                     if tmp != block:
                         print(binascii.hexlify(tmp))
                         print(binascii.hexlify(block))

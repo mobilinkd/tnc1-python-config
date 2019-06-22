@@ -1,6 +1,8 @@
 #!/usr/bin/env python2.7
 
 import time
+from struct import pack
+from builtins import bytes
 
 class Avr109(object):
     """AVR109 firmware upload protocol.  This currently just implements the
@@ -21,7 +23,7 @@ class Avr109(object):
         address //= 2 # convert from byte to word address
         ah = (address & 0xFF00) >> 8
         al = address & 0xFF
-        self.sio_writer.write(bytes([ord('A'), ah, al]))
+        self.sio_writer.write(bytes(pack('cBB', b'A', ah, al)))
         self.sio_writer.flush()
         self.verify_command_sent("Set address to: %04x" % address)
     
@@ -41,7 +43,7 @@ class Avr109(object):
         ah = 0
         al = len(data)
         
-        self.sio_writer.write(bytes([ord('B'),ah, al, ord(memtype)]))
+        self.sio_writer.write(bytes(pack('cBBc', b'B', ah, al, memtype)))
         self.sio_writer.write(data)
         self.sio_writer.flush()
         self.verify_command_sent("Block load: %d" % len(data))
@@ -57,7 +59,7 @@ class Avr109(object):
             'F' is for flash.
         @param size is the size of the block to read."""
                 
-        self.sio_writer.write(bytes([ord('g'), 0, size, ord(memtype)]))
+        self.sio_writer.write(bytes(pack('cBBc', b'g', 0, size, memtype)))
         self.sio_writer.flush()
         self.sio_reader.timeout = 1
         result = self.sio_reader.read(size)
@@ -119,7 +121,7 @@ class Avr109(object):
         self.sio_writer.write(b'b')
         self.sio_writer.flush()
         if self.sio_reader.read(1) == b'Y':
-            tmp = self.sio_reader.read(2)
+            tmp = bytearray(self.sio_reader.read(2))
             return tmp[0] * 256 + tmp[1]
         return 0
    
@@ -147,7 +149,7 @@ class Avr109(object):
         for i in range(retries):
             self.sio_writer.write(cmd)
             self.sio_writer.flush()
-            received = self.sio_reader.read(expected_len)
+            received = bytes(self.sio_reader.read(expected_len))
             if received == expected:
                 return True
             time.sleep(.1)
@@ -162,7 +164,7 @@ class Avr109(object):
         self.sio_writer.write(b'V')
         self.sio_writer.flush()
         self.sio_reader.timeout = .1
-        sw_version = self.sio_reader.read(2)
+        sw_version = bytearray(bytes(self.sio_reader.read(2)))
         if len(sw_version) < 2: return "unknown"
         return "%d.%d" % (sw_version[0] - 48, sw_version[1] - 48)
     
@@ -184,7 +186,7 @@ class Avr109(object):
         self.sio_writer.flush()
         device_list = []
         while True:
-            device = self.sio_reader.read(1)      
+            device = bytearray(self.sio_reader.read(1))
             if device[0] == 0: break
             device_list.append(device)
         
