@@ -13,6 +13,7 @@ from gi.repository import GLib
 from BootLoader import BootLoader
 from bluetooth import *
 import select
+import binascii
 
 class UTC(datetime.tzinfo):
     """UTC"""
@@ -202,6 +203,11 @@ class TncModel(object):
     SET_PTT_CHANNEL = bytes(b'\06\117%c');
     GET_PTT_CHANNEL = bytes(b'\06\120');
     
+    SET_PASSALL = bytes(b'\06\x51%c')
+    SET_MODEM_TYPE = bytes(b'\06\xc1\x82%c')
+    SET_RX_REVERSE_POLARITY = bytes(b'\06\x53%c')
+    SET_TX_REVERSE_POLARITY = bytes(b'\06\x55%c')
+    
     TONE_NONE = 0
     TONE_SPACE = 1
     TONE_MARK = 2
@@ -239,8 +245,14 @@ class TncModel(object):
     HANDLE_MIN_INPUT_GAIN = 124     # API 2.0
     HANDLE_MAX_INPUT_GAIN = 125     # API 2.0
     HANDLE_CAPABILITIES = 126
+    HANDLE_EXTENDED_1 = 0xc1
+    HANDLE_EXT1_SELECTED_MODEM_TYPE = 0x81
+    HANDLE_EXT1_SUPPORTED_MODEM_TYPES = 0x83
     
     HANDLE_PTT_CHANNEL = 80
+    HANDLE_PASSALL = 82
+    HANDLE_RX_REVERSE_POLARITY = 84
+    HANDLE_TX_REVERSE_POLARITY = 86
     
     CAP_EEPROM_SAVE = 0x0200
     CAP_ADJUST_INPUT = 0x0400
@@ -336,7 +348,7 @@ class TncModel(object):
         self.app.tnc_rx_volume(value)
     
     def handle_packet(self, packet):
-        # print packet, packet.data
+        # print(packet.sub_type, packet.data)
         if packet.packet_type == 0x07:
             print(packet.data)
             self.app.notice(packet.data);
@@ -400,10 +412,28 @@ class TncModel(object):
             self.handle_min_input_gain(packet)
         elif packet.sub_type == self.HANDLE_MAX_INPUT_GAIN:
             self.handle_max_input_gain(packet)
+        elif packet.sub_type == self.HANDLE_PASSALL:
+            self.handle_passall(packet)
+        elif packet.sub_type == self.HANDLE_RX_REVERSE_POLARITY:
+            self.handle_rx_reverse_polarity(packet)
+        elif packet.sub_type == self.HANDLE_TX_REVERSE_POLARITY:
+            self.handle_tx_reverse_polarity(packet)
+        elif packet.sub_type == self.HANDLE_EXTENDED_1:
+            self.handle_extended_range_1(packet)
         else:
             # print "handle_packet: unknown packet sub_type (%d)" % packet.sub_type
             # print "data:", packet.data
             pass
+    
+    def handle_extended_range_1(self, packet):
+        extended_type = packet.data[0]
+        packet.data = packet.data[1:]
+        if extended_type == self.HANDLE_EXT1_SELECTED_MODEM_TYPE:
+            self.handle_selected_modem_type(packet)
+        elif extended_type == self.HANDLE_EXT1_SUPPORTED_MODEM_TYPES:
+            self.handle_supported_modem_types(packet)
+        else:
+            pass # Unknown extended type
     
     def readSerial(self, sio):
         # print "reading..."
@@ -501,6 +531,7 @@ class TncModel(object):
             return ((value // 16) * 10) + (value & 0x0F)
             
         d = packet.data
+        # print("raw date:", binascii.hexlify(d))
         year = bcd_to_int(d[0]) + 2000
         month = bcd_to_int(d[1])
         day = bcd_to_int(d[2])
@@ -512,7 +543,8 @@ class TncModel(object):
             dt = datetime.datetime(year, month, day, hour, minute, second, tzinfo=utc)
             self.app.tnc_date_time(dt.isoformat())
         except Exception as ex:
-            self.app.tnc_date_time("FIRMWARE ERROR")
+            self.app.tnc_date_time("RTC ERROR")
+            self.app.exception(ex)
     
     def handle_bluetooth_name(self, packet):
         pass
@@ -560,6 +592,22 @@ class TncModel(object):
    
     def handle_max_input_gain(self, packet):
         self.app.tnc_max_input_gain(unpack('>h', packet.data)[0])
+
+    def handle_passall(self, packet):
+        self.app.tnc_passall(packet.data[0])
+
+    def handle_rx_reverse_polarity(self, packet):
+        self.app.tnc_rx_reverse_polarity(packet.data[0])
+
+    def handle_tx_reverse_polarity(self, packet):
+        self.app.tnc_tx_reverse_polarity(packet.data[0])
+
+    def handle_selected_modem_type(self, packet):
+        self.app.tnc_selected_modem_type(packet.data[0])
+
+    def handle_supported_modem_types(self, packet):
+        self.app.tnc_supported_modem_types(packet.data)
+
    
     def set_tx_volume(self, volume):
         try:
@@ -679,6 +727,34 @@ class TncModel(object):
         except Exception as e:
             self.app.exception(e)
     
+    def set_passall(self, value):
+        if self.sio_writer is None: return
+        try:
+            self.sio_writer.send(self.encoder.encode(self.SET_PASSALL % (value)))
+        except Exception as e:
+            self.app.exception(e)
+    
+    def set_rx_reverse_polarity(self, value):
+        if self.sio_writer is None: return
+        try:
+            self.sio_writer.send(self.encoder.encode(self.SET_RX_REVERSE_POLARITY % (value)))
+        except Exception as e:
+            self.app.exception(e)
+    
+    def set_tx_reverse_polarity(self, value):
+        if self.sio_writer is None: return
+        try:
+            self.sio_writer.send(self.encoder.encode(self.SET_TX_REVERSE_POLARITY % (value)))
+        except Exception as e:
+            self.app.exception(e)
+    
+    def set_modem_type(self, value):
+        if self.sio_writer is None: return
+        try:
+            self.sio_writer.send(self.encoder.encode(self.SET_MODEM_TYPE % (value)))
+        except Exception as e:
+            self.app.exception(e)
+
     def set_usb_on(self, value):
         if self.sio_writer is None: return
         try:
