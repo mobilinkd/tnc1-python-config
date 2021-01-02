@@ -68,6 +68,14 @@ class TncConfigApp(object):
         self.stack.set_sensitive(False)
         self.sidebar = self.builder.get_object("config_sidebar")
         self.sidebar.set_sensitive(False)
+        
+        self.modem_types = {
+            1 : "1200 baud AFSK",
+            2 : "300 baud AFSK",
+            3 : "9600 baud G3RUH/GFSK",
+            5 : "M17 4-FSK"
+        }
+        self.supported_modem_types = {}
 
         self.init_audio_input_frame()
         self.init_audio_output_frame()
@@ -102,6 +110,13 @@ class TncConfigApp(object):
             self.tnc = None
         Gtk.main_quit()
 
+    def get_modem_number(self, modem_name):
+        
+        for number, name in self.modem_types.items():
+            if name == modem_name:
+                return number
+        else:
+            return None
 
     def need_save(self):
         pass
@@ -391,6 +406,10 @@ class TncConfigApp(object):
         self.dcd_check_button = self.builder.get_object("dcd_check_button")
         self.connection_tracking_check_button = self.builder.get_object("connection_tracking_check_button")
         self.verbose_output_check_button = self.builder.get_object("verbose_output_check_button")
+        self.passall_check_button = self.builder.get_object("passall_check_button")
+        self.modem_type_combo_box_text = self.builder.get_object("modem_type_combo_box_text")
+        self.rx_reverse_polarity_check_button = self.builder.get_object("rx_reverse_polarity_check_button")
+        self.tx_reverse_polarity_check_button = self.builder.get_object("tx_reverse_polarity_check_button")
     
     def on_modem_settings_enter(self):
         # print('on_modem_settings_enter')
@@ -409,6 +428,23 @@ class TncConfigApp(object):
     def on_verbose_output_check_button_toggled(self, widget):
         self.tnc.set_verbosity(widget.get_active())
 
+    def on_passall_check_button_toggled(self, widget):
+        self.tnc.set_passall(widget.get_active())
+
+    def on_rx_reverse_polarity_check_button_toggled(self, widget):
+        if self.tx_reverse_polarity_check_button.get_visible():
+            self.tnc.set_rx_reverse_polarity(widget.get_active())
+        
+    def on_tx_reverse_polarity_check_button_toggled(self, widget):
+        if self.rx_reverse_polarity_check_button.get_visible():
+            self.tnc.set_tx_reverse_polarity(widget.get_active())
+
+    def on_modem_type_combo_box_text_changed(self, widget):
+        modem_number = self.get_modem_number(widget.get_active_text())
+        if modem_number is not None:
+            self.tnc.set_modem_type(modem_number)
+            
+    
 
     ### TNC Information...
     def init_tnc_information_frame(self):
@@ -632,6 +668,44 @@ class TncConfigApp(object):
         self.modem_settings_frame.set_visible(True)
         self.verbose_output_check_button.set_sensitive(True)
         self.verbose_output_check_button.set_active(value)
+    
+    def tnc_supported_modem_types(self, value):
+        self.modem_settings_frame.set_visible(True)
+        self.supported_modem_types = {}
+        for i, v in enumerate(value):
+            if v in self.modem_types:
+                self.supported_modem_types[v] = i
+                self.modem_type_combo_box_text.append_text(self.modem_types[v])
+        if self.modem_type is not None and self.modem_type in self.modem_types:
+            self.modem_type_combo_box_text.set_active(self.supported_modem_types[v])
+            
+        self.modem_type_combo_box_text.set_visible(True)
+        self.modem_type_combo_box_text.set_sensitive(True)
+
+    def tnc_selected_modem_type(self, value):
+        self.modem_settings_frame.set_visible(True)
+        self.modem_type_combo_box_text.set_sensitive(True)
+        self.modem_type = value
+        if value in self.modem_types and value in self.supported_modem_types and self.modem_type_combo_box_text.get_visible():
+            self.modem_type_combo_box_text.set_active(self.supported_modem_types[value])
+    
+    def tnc_rx_reverse_polarity(self, value):
+        self.modem_settings_frame.set_visible(True)
+        self.rx_reverse_polarity_check_button.set_active(value)
+        self.rx_reverse_polarity_check_button.set_visible(True)
+        self.rx_reverse_polarity_check_button.set_sensitive(True)
+    
+    def tnc_tx_reverse_polarity(self, value):
+        self.modem_settings_frame.set_visible(True)
+        self.tx_reverse_polarity_check_button.set_active(value)
+        self.tx_reverse_polarity_check_button.set_visible(True)
+        self.tx_reverse_polarity_check_button.set_sensitive(True)
+
+    def tnc_passall(self, value):
+        self.modem_settings_frame.set_visible(True)
+        self.passall_check_button.set_visible(True)
+        self.passall_check_button.set_sensitive(True)
+        self.passall_check_button.set_active(value)
     
     ### TNC Information
     
