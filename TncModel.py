@@ -343,7 +343,6 @@ class TncModel(object):
         # print(packet.sub_type, packet.data)
         if packet.packet_type == 0x07:
             print(packet.data)
-            self.app.notice(packet.data);
         elif packet.packet_type != 0x06:
             return
         elif packet.sub_type == self.HANDLE_INPUT_LEVEL:
