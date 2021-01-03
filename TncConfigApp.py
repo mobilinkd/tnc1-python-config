@@ -371,7 +371,7 @@ class TncConfigApp(object):
             self.tnc.set_tx_delay(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
    
-    def on_tx_delay_spin_button_button_release_event(self, widget):
+    def on_tx_delay_spin_button_button_release_event(self, widget, event):
         self.tnc.set_tx_delay(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
 
@@ -381,7 +381,7 @@ class TncConfigApp(object):
             self.tnc.set_time_slot(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
 
-    def on_slot_time_spin_button_button_release_event(self, widget):
+    def on_slot_time_spin_button_button_release_event(self, widget, event):
         self.tnc.set_time_slot(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
 
@@ -391,7 +391,7 @@ class TncConfigApp(object):
             self.tnc.set_persistence(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
 
-    def on_p_persist_spin_button_button_release_event(self, widget):
+    def on_p_persist_spin_button_button_release_event(self, widget, event):
         self.tnc.set_persistence(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
         
@@ -671,6 +671,7 @@ class TncConfigApp(object):
     
     def tnc_supported_modem_types(self, value):
         self.modem_settings_frame.set_visible(True)
+        self.modem_type_combo_box_text.remove_all()
         self.supported_modem_types = {}
         for i, v in enumerate(value):
             if v in self.modem_types:
