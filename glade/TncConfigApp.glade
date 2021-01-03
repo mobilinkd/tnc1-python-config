@@ -1986,8 +1986,8 @@
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes">&lt;span foreground="blue" size="x-large"&gt;TncConfigApp&lt;/span&gt;
 &lt;span foreground="blue" size="medium"&gt;Serial Port Variant&lt;/span&gt;
-&lt;span font_weight="bold"&gt;Version 1.0.3&lt;/span&gt;
-2021-01-01
+&lt;span font_weight="bold"&gt;Version 1.2.0&lt;/span&gt;
+2021-01-03
 Copyright 2013-2021 Mobilinkd LLC</property>
                             <property name="use_markup">True</property>
                           </object>
