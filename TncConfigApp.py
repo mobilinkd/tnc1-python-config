@@ -636,6 +636,7 @@ class TncConfigApp(object):
         self.connect_button.set_label("gtk-connect")
         self.connect_button.set_active(False)
         self.tnc = None
+        self.modem_type = None
 
     ### Audio Input
     def tnc_rx_volume(self, value):
@@ -750,13 +751,15 @@ class TncConfigApp(object):
             if v in self.modem_types:
                 self.supported_modem_types[v] = i
                 self.modem_type_combo_box_text.append_text(self.modem_types[v])
-        if self.modem_type is not None and self.modem_type in self.modem_types:
-            self.modem_type_combo_box_text.set_active(self.supported_modem_types[v])
-            
+        
+        if self.modem_type is not None:
+            self.modem_type_combo_box_text.set_active(self.supported_modem_types[self.modem_type])
+        
         self.modem_type_combo_box_text.set_visible(True)
         self.modem_type_combo_box_text.set_sensitive(True)
 
     def tnc_selected_modem_type(self, value):
+        print("selected modem type is %d = %s" % (value, self.modem_types[value]))
         self.modem_settings_frame.set_visible(True)
         self.modem_type_combo_box_text.set_sensitive(True)
         self.modem_type = value
