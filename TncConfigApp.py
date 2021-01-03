@@ -483,14 +483,15 @@ class TncConfigApp(object):
         self.modem_type_combo_box_text = self.builder.get_object("modem_type_combo_box_text")
         self.rx_reverse_polarity_check_button = self.builder.get_object("rx_reverse_polarity_check_button")
         self.tx_reverse_polarity_check_button = self.builder.get_object("tx_reverse_polarity_check_button")
+        self.modem_settings_active = False
     
     def on_modem_settings_enter(self):
         # print('on_modem_settings_enter')
-        pass
+        self.modem_settings_active = True
         
     def on_modem_settings_leave(self):
         # print('on_modem_settings_leave')
-        pass
+        self.modem_settings_active = False
         
     def on_dcd_check_button_toggled(self, widget):
         self.tnc.set_squelch_level((not widget.get_active()) * 2)
@@ -514,10 +515,11 @@ class TncConfigApp(object):
 
     def on_modem_type_combo_box_text_changed(self, widget):
         modem_number = self.get_modem_number(widget.get_active_text())
-        if modem_number is not None:
+        if modem_number is None: return
+        if self.modem_settings_active:
+            # User interaction.
             self.tnc.set_modem_type(modem_number)
             
-    
 
     ### TNC Information...
     def init_tnc_information_frame(self):
@@ -764,7 +766,7 @@ class TncConfigApp(object):
         self.modem_type_combo_box_text.set_sensitive(True)
         self.modem_type = value
         if value in self.modem_types and value in self.supported_modem_types and self.modem_type_combo_box_text.get_visible():
-            self.modem_type_combo_box_text.set_active(self.supported_modem_types[value])
+            self.modem_type_combo_box_text.set_active(self.supported_modem_types[self.modem_type])
     
     def tnc_rx_reverse_polarity(self, value):
         self.modem_settings_frame.set_visible(True)
