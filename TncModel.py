@@ -14,6 +14,7 @@ from BootLoader import BootLoader
 from bluetooth import *
 import select
 import binascii
+import socket
 
 class UTC(datetime.tzinfo):
     """UTC"""
@@ -281,7 +282,9 @@ class TncModel(object):
         
         try:
             # print("connecting to %s" % self.serial)
-            self.ser = BluetoothSocket(RFCOMM)
+            # self.ser = BluetoothSocket(RFCOMM)
+            self.ser = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+            print(f'connecting to {self.device["host"]:}:{self.device["port"]:}')
             self.ser.connect((self.device['host'], self.device['port']))
             # print("connected")
             time.sleep(1)
@@ -300,9 +303,9 @@ class TncModel(object):
             
             time.sleep(1)
             self.sio_writer.send(self.encoder.encode(self.STREAM_VOLUME))
-            
 
         except Exception as e:
+            traceback.print_exc()
             self.app.exception(e)
 
     def internal_reconnect(self):

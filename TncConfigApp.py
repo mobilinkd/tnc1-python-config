@@ -629,6 +629,7 @@ class TncConfigApp(object):
         self.serial_port_combo_box_text.set_sensitive(False)
         self.connect_button.set_label("gtk-disconnect")
         self.firmware_progress_bar.set_text("Select firmware image...")
+        
 
     def tnc_disconnect(self):
         self.stack.set_visible_child_name('about')
