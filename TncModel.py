@@ -146,7 +146,6 @@ class KissDecode(object):
         if c == self.FEND:
             self.state = self.WAIT_PACKET_TYPE
             self.packet = KissData()
-            # print self.tmp
             self.tmp = bytearray()
         else:
             self.tmp.append(c)
@@ -239,8 +238,8 @@ class TncModel(object):
     
     SET_OUTPUT_VOLUME=bytes(b'\x06\x01%c')
     SET_OUTPUT_GAIN=bytes(b'\x06\x01%c%c')     # API 2.0, 16-bit signed
-    SET_INPUT_TWIST=bytes(b'\x06\x18\\%s')      # API 2.0, 0-100
-    SET_OUTPUT_TWIST=bytes(b'\x06\x1a\\%c')     # API 2.0, 0-100
+    SET_INPUT_TWIST=bytes(b'\x06\x18%c')       # API 2.0, 0-100
+    SET_OUTPUT_TWIST=bytes(b'\x06\x1a%c')      # API 2.0, 0-100
     SET_INPUT_ATTEN=bytes(b'\06\02%c')
     SET_INPUT_GAIN=bytes(b'\06\02%c%c')        # API 2.0, 16-bit signed
     SET_SQUELCH_LEVEL=bytes(b'\06\03%c')
@@ -438,7 +437,6 @@ class TncModel(object):
         self.app.tnc_rx_volume(value)
     
     def handle_packet(self, packet):
-        # print(packet.sub_type, packet.data)
         if packet.packet_type == 0x07:
             print(packet.data)
         elif packet.packet_type != 0x06:
@@ -535,16 +533,15 @@ class TncModel(object):
             pass  # Unknown extended type
     
     def readSerial(self, sio):
-        # print "reading..."
         while self.reading:
             try:
                 block = bytes(sio.recv(160))
-                if len(block) == 0: continue
+                if len(block) == 0:
+                    continue
                 for c in block:
                     packet = self.decoder.process(c)
                     if packet is not None:
                         GLib.idle_add(self.handle_packet, packet)
-                    # self.handle_packet(packet)
             except ValueError as e:
                 self.app.exception(e)
                 pass
