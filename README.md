@@ -1,5 +1,4 @@
-tnc1-python-config
-==================
+# tnc1-python-config
 
 Python package for configuring the Mobilinkd TNC.
 
@@ -17,8 +16,7 @@ on the bootloader protocol.
 This package has dependencies on pygobject3, pyserial and, on Windows,
 cx_freeze.
 
-Windows Build
-=============
+# Windows Build
 
 Install 64-bit Python 2.7.15 from here:
 https://www.python.org/downloads/release/python-2715/1
@@ -36,8 +34,10 @@ Execute the following to generate the Windows MSI for the package:
 python setup.py bdist_msi --upgrade-code e6e4c96d-2b0b-4695-a754-efac18a2e923
 
 
-Linux Build
-===========
+# Linux Build
+
+
+## Fedora / Red Hat / Other RPM-based systems
 
 This was built/tested with Python 3.6, pyserial-3.1.1 and pygobject-3.28.3
 
@@ -45,12 +45,28 @@ python3-3.6.6-1.fc28.x86_64
 python3-pyserial-3.1.1-6.fc28.noarch
 python3-gobject-3.28.3-1.fc28.x86_64
 
-./setup.py bdist_rpm 
+    ./setup.py bdist_rpm 
 
 Will build an RPM that can be installed.
 
-OS X Build
-===========
+## Debian/Ubuntu
+
+I have not managed to build a working deb package. The dependecies are never
+properly listed or handled.
+
+However, it will build a package and install it. If the dependencies are satisfied,
+the application will work. Here are the runtime dependencies:
+
+    sudo apt-get install python-gobject python3-serial gir1.2-notify-0.7
+
+And this is the build process:
+
+    sudo apt-get install python-stdeb python3-stdeb python-all python3-all dh-python fakeroot 
+    python3 ./setup.py --command-packages=stdeb.command bdist_deb
+
+This was confirmed on a Raspberry Pi running Ubuntu 20.04.6 LTS.
+
+# OS X Build
 
 You will need the X11 server installed from here: https://xquartz.macosforge.org/landing/
 
