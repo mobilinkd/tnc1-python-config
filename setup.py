@@ -80,7 +80,7 @@ buildOptions = dict(
 
 setup(
     name = "TncConfigApp",
-    version = "1.2.0",
+    version = "1.3.0",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
@@ -92,9 +92,9 @@ Bluetooth SPP) and is used to set the transmit volume level, monitor receive
 volume level so it can be properly adjusted on the radio, set the KISS
 parameters, and upload new firmware to TNC1 & TNC2 devices.""",
     options = dict(build_exe = buildOptions),
-    platforms = ('Any',),
-    keywords = ('mobilinkd', 'aprs', 'ham', 'afsk', 'tnc', 'ax25', 'kiss'),
-    requires = ['pyserial', 'pygobject3'],
+    platforms = ['Any',],
+    keywords = ['mobilinkd', 'aprs', 'ham', 'afsk', 'tnc', 'ax25', 'kiss'],
+    requires = ['pyserial', 'PyGObject'],
     executables = executables,
     scripts = scripts,
     py_modules = py_modules,
