@@ -92,9 +92,9 @@ serial port) and is used to set the transmit volume level, monitor receive
 volume level so it can be properly adjusted on the radio, set the KISS
 parameters, and upload new firmware to TNC1 & TNC2 devices.""",
     options = dict(build_exe = buildOptions),
-    platforms = ('Any',),
-    keywords = ('mobilinkd', 'aprs', 'ham', 'afsk', 'tnc', 'ax25', 'kiss'),
-    requires = ['PyBluez', 'pygobject3'],
+    platforms = ['Any',],
+    keywords = ['mobilinkd', 'aprs', 'ham', 'afsk', 'tnc', 'ax25', 'kiss'],
+    requires = ['pyserial', 'PyBluez', 'pygobject3'],
     executables = executables,
     scripts = scripts,
     py_modules = py_modules,
