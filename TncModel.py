@@ -9,10 +9,25 @@ from io import StringIO, BytesIO
 from struct import pack, unpack
 from gi.repository import GLib
 from BootLoader import BootLoader
-from bluetooth import *
-import select
 import binascii
 import socket
+
+# Transport libraries are optional so the app runs even if only one is
+# installed.  The UI offers only the transports whose library is present.
+try:
+    import serial
+    import serial.tools.list_ports
+    HAVE_SERIAL = True
+except ImportError:
+    HAVE_SERIAL = False
+
+try:
+    from bluetooth import find_service
+    HAVE_BLUETOOTH = True
+except ImportError:
+    HAVE_BLUETOOTH = False
+
+RFCOMM_UUID = '00001101-0000-1000-8000-00805f9b34fb'
 
 class UTC(datetime.tzinfo):
     """UTC"""
@@ -37,11 +52,26 @@ def get_device_name(devices, address):
         return x[0]
     else:
         return None
-        
-def available_devices():
-    
-    rfcomm_devices = find_service(uuid='00001101-0000-1000-8000-00805f9b34fb')
-    return rfcomm_devices
+
+def available_serial_devices():
+    """Return serial ports as a list of dicts matching the BT device format."""
+    if not HAVE_SERIAL:
+        return []
+    return [
+        {'host': port.device, 'name': port.description or port.device, 'port': 0}
+        for port in serial.tools.list_ports.comports()
+    ]
+
+def available_bluetooth_devices():
+    """Return RFCOMM BT devices as a list of dicts."""
+    if not HAVE_BLUETOOTH:
+        return []
+    return find_service(uuid=RFCOMM_UUID)
+
+def available_devices(transport='bluetooth'):
+    if transport == 'serial':
+        return available_serial_devices()
+    return available_bluetooth_devices()
 
 class KissData(object):
 
@@ -158,7 +188,30 @@ class KissEncode(object):
         buf.write(bytes([self.FEND]))
         
         return buf.getvalue()
-    
+
+
+class SerialTransport(object):
+    """Adapt a pyserial Serial object to the socket API used by TncModel.
+
+    The rest of TncModel talks to ``self.ser`` using the BSD-socket methods
+    ``send()``, ``recv()`` and ``close()``.  A pyserial ``Serial`` object
+    exposes ``write()``, ``read()`` and ``close()`` instead.  This thin
+    wrapper maps the socket names onto the serial names so the command and
+    reader code can stay transport-agnostic.
+    """
+
+    def __init__(self, ser):
+        self._ser = ser
+
+    def send(self, data):
+        return self._ser.write(data)
+
+    def recv(self, nbytes):
+        return self._ser.read(nbytes)
+
+    def close(self):
+        self._ser.close()
+
 
 class TncModel(object):
 
@@ -273,9 +326,10 @@ class TncModel(object):
     CAP_ADJUST_INPUT = 0x0400
     CAP_DFU_FIRMWARE = 0x0800
 
-    def __init__(self, app, device):
+    def __init__(self, app, device, transport='bluetooth'):
         self.app = app
         self.device = device
+        self.transport = transport
         self.decoder = KissDecode()
         self.encoder = KissEncode()
         self.ser = None
@@ -297,11 +351,14 @@ class TncModel(object):
         if self.connected(): return
         
         try:
-            # print("connecting to %s" % self.serial)
-            # self.ser = BluetoothSocket(RFCOMM)
-            self.ser = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-            print(f'connecting to {self.device["host"]:}:{self.device["port"]:}')
-            self.ser.connect((self.device['host'], self.device['port']))
+            if self.transport == 'serial':
+                print(f'connecting to {self.device["host"]}')
+                ser = serial.Serial(self.device['host'], 38400, timeout=.1)
+                self.ser = SerialTransport(ser)
+            else:
+                self.ser = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+                print(f'connecting to {self.device["host"]:}:{self.device["port"]:}')
+                self.ser.connect((self.device['host'], self.device['port']))
             # print("connected")
             time.sleep(1)
             self.sio_reader = self.ser # io.BufferedReader(self.ser)

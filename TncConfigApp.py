@@ -18,9 +18,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
 from gi.repository import Gtk,Gdk,GLib,GObject,Notify
 
-import serial.tools.list_ports
-
-from TncModel import TncModel, available_devices
+from TncModel import TncModel, available_devices, HAVE_SERIAL, HAVE_BLUETOOTH
 
 def glade_location():
 
@@ -137,47 +135,88 @@ class TncConfigApp(object):
         else:
             return None
     
-    def on_scan_complete(self, device = None):
-        
-        self.scan_thd.join()
+    def current_transport(self):
+        transport = self.transport_combo_box_text.get_active_id()
+        return transport if transport is not None else 'bluetooth'
+
+    def set_transport_selector_sensitive(self, sensitive):
+        """The transport selector is only usable while disconnected and idle."""
+        self.transport_combo_box_text.set_sensitive(sensitive)
+
+    def populate_devices(self, devices, select_host=None):
+        """Fill the device combo from a list of device dicts."""
         self.serial_port_combo_box_text.remove_all()
         self.serial_port_combo_box_text.set_active(-1)
         self.device = None
-        
+
         index = 0
         active = -1
-        for dev in self.available_devices:
+        for dev in devices:
             self.serial_port_combo_box_text.append(
                 dev['host'], '{} - {}'.format(dev['name'], dev['host']))
-            self.connect_button.set_sensitive(True)
-            if device is not None and device == dev['host']:
+            if select_host is not None and select_host == dev['host']:
                 self.serial_port_combo_box_text.set_active(index)
                 active = index
                 self.device = dev
             index += 1
 
-        if active == -1 and self.available_devices:
+        if active == -1 and devices:
             self.serial_port_combo_box_text.set_active(0)
             self.serial_port_combo_box_text.set_sensitive(True)
-            
+
+    def on_scan_complete(self, device = None):
+        
+        # The Bluetooth path runs discovery on a worker thread; join it.
+        # The serial path runs synchronously and has no thread to join.
+        if getattr(self, 'scan_thd', None) is not None and self.scan_thd.is_alive():
+            self.scan_thd.join()
+        self.populate_devices(self.available_devices, device)
+
         self.refresh_spinner.stop()
-        self.connect_button.set_sensitive(True)
+        self.connect_button.set_sensitive(bool(self.available_devices))
         self.refresh_button.set_sensitive(True)
+        self.set_transport_selector_sensitive(True)
         
         if self.device is not None:
             self.refresh_button.set_sensitive(False)
+            self.set_transport_selector_sensitive(False)
             self.connect_button.set_active(True)
             self.reset_ui()
-            self.tnc = TncModel(self, self.device)
+            self.tnc = TncModel(self, self.device, self.current_transport())
             self.tnc.connect()
 
     def scan_for_devices(self, device):
         
-        self.available_devices = available_devices()
+        self.available_devices = available_devices(self.current_transport())
         GLib.idle_add(self.on_scan_complete, device)
-    
+
+    def begin_scan(self, device=None):
+        """Kick off device discovery for the current transport.
+
+        Serial enumeration is fast and synchronous, so it runs inline.
+        Bluetooth discovery can take several seconds, so it runs on a
+        worker thread with the spinner running.
+        """
+        self.connect_button.set_sensitive(False)
+        self.refresh_button.set_sensitive(False)
+        self.set_transport_selector_sensitive(False)
+        self.serial_port_combo_box_text.remove_all()
+        self.serial_port_combo_box_text.append(None, "Scanning for devices...")
+        self.serial_port_combo_box_text.set_active(0)
+        self.serial_port_combo_box_text.set_sensitive(False)
+
+        if self.current_transport() == 'serial':
+            self.available_devices = available_devices('serial')
+            self.on_scan_complete(device)
+        else:
+            self.refresh_spinner.start()
+            self.scan_thd = threading.Thread(
+                target=self.scan_for_devices, args=(device,))
+            self.scan_thd.start()
+
     def init_serial_port_combobox(self, device):
         
+        self.transport_combo_box_text = self.builder.get_object("transport_combo_box_text")
         self.connect_button = self.builder.get_object("connect_button")
         self.connect_button.set_sensitive(False)
         self.refresh_button = self.builder.get_object("refresh_button")
@@ -186,38 +225,51 @@ class TncConfigApp(object):
         self.serial_port_combo_box = self.builder.get_object("serial_port_combo_box")
         self.serial_port_combo_box_text = self.builder.get_object("serial_port_combo_box_text")
         assert(self.serial_port_combo_box_text is not None)
-        self.serial_port_combo_box_text.append(None, "Scanning for devices...")
-        self.serial_port_combo_box_text.set_active(0)
-        self.serial_port_combo_box_text.set_sensitive(False)
-        self.scan_thd = threading.Thread(target=self.scan_for_devices, args=(device,))
-        self.scan_thd.start()
-        self.refresh_spinner.start()
-        
+
+        # Offer only the transports whose libraries are installed.
+        self.transport_combo_box_text.remove_all()
+        if HAVE_SERIAL:
+            self.transport_combo_box_text.append('serial', 'Serial')
+        if HAVE_BLUETOOTH:
+            self.transport_combo_box_text.append('bluetooth', 'Bluetooth')
+        # Default to serial when available (typical desktop use), else BT.
+        # Block the changed handler so this initial selection does not kick
+        # off a scan -- begin_scan() below handles the first discovery.
+        self.transport_combo_box_text.handler_block_by_func(
+            self.on_transport_combo_box_changed)
+        self.transport_combo_box_text.set_active_id(
+            'serial' if HAVE_SERIAL else 'bluetooth')
+        self.transport_combo_box_text.handler_unblock_by_func(
+            self.on_transport_combo_box_changed)
+
+        self.begin_scan(device)
+
+    def on_transport_combo_box_changed(self, widget):
+        # Ignore changes triggered while connected or mid-scan; the selector
+        # is insensitive then, but guard against programmatic set_active too.
+        if self.tnc is not None:
+            return
+        self.begin_scan(None)
+
     def on_connect_button_toggled(self, widget):
     
         if widget.get_active():
             self.refresh_button.set_sensitive(False)
+            self.set_transport_selector_sensitive(False)
             host = self.serial_port_combo_box_text.get_active_id()
             self.device = self.get_available_device(host)
             self.reset_ui()
-            self.tnc = TncModel(self, self.device)
+            self.tnc = TncModel(self, self.device, self.current_transport())
             self.tnc.connect()
         elif self.tnc is not None:   # Possible race condition here...
             self.tnc.disconnect()
             self.tnc = None
             self.refresh_button.set_sensitive(True)
+            self.set_transport_selector_sensitive(True)
     
     def on_refresh_button_clicked(self, widget):
         
-        self.connect_button.set_sensitive(False)
-        self.refresh_button.set_sensitive(False)
-        self.serial_port_combo_box_text.remove_all()
-        self.serial_port_combo_box_text.append(None, "Scanning for devices...")
-        self.serial_port_combo_box_text.set_active(0)
-        self.serial_port_combo_box_text.set_sensitive(False)
-        self.scan_thd = threading.Thread(target=self.scan_for_devices, args=(None,))
-        self.scan_thd.start()
-        self.refresh_spinner.start()
+        self.begin_scan(None)
         
     
     def on_serial_port_combo_box_changed(self, widget, data = None):
