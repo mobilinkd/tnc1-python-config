@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import platform
 import threading
 import time
 import datetime
@@ -55,18 +56,22 @@ def get_device_name(devices, address):
         return None
 
 def available_serial_devices():
-    """Return USB serial ports as a list of dicts matching the BT device format.
+    """Return serial ports as a list of dicts matching the BT device format.
 
-    Only USB serial adapters are listed (ttyUSB* / ttyACM* on Linux).  The
+    On Linux, only USB serial adapters are listed (ttyUSB* / ttyACM*); the
     legacy ttyS* PC UARTs are never used for a TNC and just clutter the list.
+    Windows (COM*) and macOS (/dev/cu.*) have no equivalent noise, so all
+    ports are returned there.
     """
     if not HAVE_SERIAL:
         return []
+    filter_usb_only = platform.system() == 'Linux'
     devices = []
     for port in serial.tools.list_ports.comports():
-        name = os.path.basename(port.device)
-        if not (name.startswith('ttyUSB') or name.startswith('ttyACM')):
-            continue
+        if filter_usb_only:
+            name = os.path.basename(port.device)
+            if not (name.startswith('ttyUSB') or name.startswith('ttyACM')):
+                continue
         devices.append(
             {'host': port.device, 'name': port.description or port.device, 'port': 0})
     return devices

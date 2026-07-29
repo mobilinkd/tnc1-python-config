@@ -55,11 +55,13 @@ class TestSerialTransport(unittest.TestCase):
 class TestDiscoveryDispatch(unittest.TestCase):
     """available_devices() must route to the right backend by transport."""
 
-    def _with_fake_serial(self, ports):
+    def _with_fake_serial(self, ports, system='Linux'):
         """Run serial discovery against a fake pyserial module.
 
         When pyserial is absent at import time, TncModel.serial is never
         bound, so we inject a fake module and restore state afterwards.
+        ``system`` pins platform.system() so the Linux-only USB filter is
+        exercised deterministically regardless of the host OS.
         Returns the discovered device list.
         """
         fake_serial = MagicMock()
@@ -69,7 +71,8 @@ class TestDiscoveryDispatch(unittest.TestCase):
         TncModel.serial = fake_serial
         TncModel.HAVE_SERIAL = True
         try:
-            return TncModel.available_devices('serial')
+            with patch.object(TncModel.platform, 'system', return_value=system):
+                return TncModel.available_devices('serial')
         finally:
             TncModel.HAVE_SERIAL = had_flag
             if had_serial is None:
@@ -86,16 +89,36 @@ class TestDiscoveryDispatch(unittest.TestCase):
         self.assertEqual(devices[0]['port'], 0)
 
     def test_serial_filters_out_legacy_uarts(self):
-        # Only USB serial adapters (ttyUSB*/ttyACM*) should be listed.
+        # On Linux, only USB serial adapters (ttyUSB*/ttyACM*) are listed.
         # Legacy PC UARTs (ttyS*) are never used for a TNC.
         devices = self._with_fake_serial([
             MagicMock(device='/dev/ttyUSB0', description='FT232'),
             MagicMock(device='/dev/ttyACM0', description='STM32 CDC'),
             MagicMock(device='/dev/ttyS0', description='16550A'),
             MagicMock(device='/dev/ttyS1', description='16550A'),
-        ])
+        ], system='Linux')
         hosts = [d['host'] for d in devices]
         self.assertEqual(hosts, ['/dev/ttyUSB0', '/dev/ttyACM0'])
+
+    def test_serial_no_filter_on_windows(self):
+        # Windows COM ports must all be returned -- the USB-only filter is
+        # Linux-specific and would otherwise hide every device.
+        devices = self._with_fake_serial([
+            MagicMock(device='COM1', description='USB Serial Port'),
+            MagicMock(device='COM3', description='Prolific USB-to-Serial'),
+        ], system='Windows')
+        hosts = [d['host'] for d in devices]
+        self.assertEqual(hosts, ['COM1', 'COM3'])
+
+    def test_serial_no_filter_on_macos(self):
+        # macOS /dev/cu.* ports must all be returned unfiltered.
+        devices = self._with_fake_serial([
+            MagicMock(device='/dev/cu.usbserial-1410', description='USB Serial'),
+            MagicMock(device='/dev/cu.Bluetooth-Incoming-Port', description='BT'),
+        ], system='Darwin')
+        hosts = [d['host'] for d in devices]
+        self.assertEqual(hosts,
+                         ['/dev/cu.usbserial-1410', '/dev/cu.Bluetooth-Incoming-Port'])
 
     def test_serial_missing_returns_empty(self):
         with patch.object(TncModel, 'HAVE_SERIAL', False):
