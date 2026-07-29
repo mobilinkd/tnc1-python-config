@@ -1,7 +1,5 @@
-#!/bin/env python2.7
+#!/usr/bin/env python3
 
-from __future__ import print_function, unicode_literals
-from builtins import bytes, chr
 import threading
 import time
 import datetime
@@ -133,10 +131,10 @@ class KissDecode(object):
 
 class KissEncode(object):
 
-    FEND = bytes(b'\xC0')
-    FESC = bytes(b'\xDB')
-    TFEND = bytes(b'\xDC')
-    TFESC = bytes(b'\xDD')
+    FEND = 0xC0
+    FESC = 0xDB
+    TFEND = 0xDC
+    TFESC = 0xDD
 
     def __init__(self):
         pass
@@ -145,19 +143,19 @@ class KissEncode(object):
         
         buf = BytesIO()
         
-        buf.write(self.FEND)
+        buf.write(bytes([self.FEND]))
         
         for c in [x for x in data]:
             if c == self.FEND:
-                buf.write(self.FESC)
-                buf.write(self.TFEND)
+                buf.write(bytes([self.FESC]))
+                buf.write(bytes([self.TFEND]))
             elif c == self.FESC:
-                buf.write(c)
-                buf.write(self.TFESC)
+                buf.write(bytes([self.FESC]))
+                buf.write(bytes([self.TFESC]))
             else:
                 buf.write(bytes([c]))
 
-        buf.write(self.FEND)
+        buf.write(bytes([self.FEND]))
         
         return buf.getvalue()
     
@@ -249,6 +247,22 @@ class TncModel(object):
     HANDLE_EXTENDED_1 = 0xc1
     HANDLE_EXT1_SELECTED_MODEM_TYPE = 0x81
     HANDLE_EXT1_SUPPORTED_MODEM_TYPES = 0x83
+    HANDLE_EXT1_GET_ALIASES = 0x88
+    HANDLE_EXT1_GET_ALIAS = 0x89
+    HANDLE_EXT1_SET_ALIAS = 0x8A
+    HANDLE_EXT1_GET_DIGIPEATER = 0x8B
+    HANDLE_EXT1_GET_BEACON_SLOTS = 0x8C
+    HANDLE_EXT1_GET_BEACON = 0x8D
+    HANDLE_EXT1_SET_BEACON = 0x8E
+    HANDLE_EXT1_SET_DIGIPEATER = 0x8F
+
+    # Routing mode flags for digipeater
+    ROUTING_PREEMPT_FRONT    = 0x01
+    ROUTING_PREEMPT_TRUNCATE = 0x02
+    ROUTING_PREEMPT_DROP     = 0x04
+    ROUTING_PREEMPT_MARK     = 0x08
+    ROUTING_SUBSTITUTE       = 0x40
+    ROUTING_SKIP_COMPLETE    = 0x80
     
     HANDLE_PTT_CHANNEL = 80
     HANDLE_PASSALL = 82
@@ -270,6 +284,8 @@ class TncModel(object):
         self.ptt = False
         self.reading = False
         self.api_version = 0x0100
+        self.alias_count = 0
+        self.beacon_count = 0
     
     def __del__(self):
         self.disconnect()
@@ -435,8 +451,18 @@ class TncModel(object):
             self.handle_selected_modem_type(packet)
         elif extended_type == self.HANDLE_EXT1_SUPPORTED_MODEM_TYPES:
             self.handle_supported_modem_types(packet)
+        elif extended_type == self.HANDLE_EXT1_GET_ALIASES:
+            self.handle_get_aliases(packet)
+        elif extended_type == self.HANDLE_EXT1_GET_ALIAS:
+            self.handle_get_alias(packet)
+        elif extended_type == self.HANDLE_EXT1_GET_DIGIPEATER:
+            self.handle_get_digipeater(packet)
+        elif extended_type == self.HANDLE_EXT1_GET_BEACON_SLOTS:
+            self.handle_get_beacon_slots(packet)
+        elif extended_type == self.HANDLE_EXT1_GET_BEACON:
+            self.handle_get_beacon(packet)
         else:
-            pass # Unknown extended type
+            pass  # Unknown extended type
     
     def readSerial(self, sio):
         # print "reading..."
@@ -610,6 +636,46 @@ class TncModel(object):
 
     def handle_supported_modem_types(self, packet):
         self.app.tnc_supported_modem_types(packet.data)
+
+    def handle_get_aliases(self, packet):
+        # packet.data = [count]
+        self.alias_count = packet.data[0]
+        self.app.tnc_digipeater_supported(self.alias_count)
+        if self.alias_count > 0:
+            self.get_all_aliases()
+
+    def handle_get_beacon_slots(self, packet):
+        # packet.data = [count]
+        self.beacon_count = packet.data[0]
+        self.app.tnc_beacon_supported(self.beacon_count)
+        if self.beacon_count > 0:
+            self.get_all_beacons()
+
+    def handle_get_digipeater(self, packet):
+        # packet.data = [enabled, routing_mode, dedupe_seconds]
+        enabled = packet.data[0]
+        routing_mode = packet.data[1]
+        dedupe_seconds = packet.data[2]
+        self.app.tnc_digipeater_settings(enabled, routing_mode, dedupe_seconds)
+
+    def handle_get_alias(self, packet):
+        # packet.data = [index, call[0..7], set, use, hops]
+        index = packet.data[0]
+        call = packet.data[1:9].rstrip(b'\x00').decode('ascii', errors='replace')
+        set_flag = packet.data[9] if len(packet.data) > 9 else 0
+        use_flag = packet.data[10] if len(packet.data) > 10 else 0
+        hops = packet.data[11] if len(packet.data) > 11 else 0
+        self.app.tnc_alias(index, call, set_flag, use_flag, hops)
+
+    def handle_get_beacon(self, packet):
+        # packet.data = [slot, interval_H, interval_L, dest\0, path\0, text\0]
+        slot = packet.data[0]
+        interval = (packet.data[1] << 8) + packet.data[2]
+        strings = packet.data[3:].split(b'\x00')
+        dest = strings[0].decode('ascii', errors='replace') if len(strings) > 0 else ''
+        path = strings[1].decode('ascii', errors='replace') if len(strings) > 1 else ''
+        text = strings[2].decode('ascii', errors='replace') if len(strings) > 2 else ''
+        self.app.tnc_beacon(slot, interval, dest, path, text)
 
    
     def set_tx_volume(self, volume):
@@ -875,5 +941,52 @@ class TncModel(object):
         time.sleep(5)
         self.internal_reconnect()
         self.sio_writer.send(self.encoder.encode(self.GET_ALL_VALUES))
+
+    ## Digipeater commands
+
+    def set_digipeater(self, enabled, routing_mode, dedupe_seconds):
+        if self.sio_writer is None: return
+        try:
+            data = bytes([0x06, 0xC1, 0x8F, enabled, routing_mode, dedupe_seconds])
+            self.sio_writer.send(self.encoder.encode(data))
+        except Exception as e:
+            self.app.exception(e)
+
+    def set_alias(self, index, call, set_flag, use_flag, hops):
+        if self.sio_writer is None: return
+        try:
+            call_bytes = call.encode('ascii')[:8].ljust(8, b'\x00')
+            data = bytes([0x06, 0xC1, 0x8A, index]) + call_bytes + bytes([set_flag, use_flag, hops])
+            self.sio_writer.send(self.encoder.encode(data))
+        except Exception as e:
+            self.app.exception(e)
+
+    def get_all_aliases(self):
+        """Fetch all aliases from the device."""
+        if self.sio_writer is None: return
+        for i in range(self.alias_count):
+            data = bytes([0x06, 0xC1, 0x89, i])
+            self.sio_writer.send(self.encoder.encode(data))
+
+    ## Beacon commands
+
+    def set_beacon(self, slot, interval, dest, path, text):
+        if self.sio_writer is None: return
+        try:
+            data = bytes([0x06, 0xC1, 0x8E, slot])
+            data += pack('>H', interval)
+            data += dest.encode('ascii') + b'\x00'
+            data += path.encode('ascii') + b'\x00'
+            data += text.encode('ascii') + b'\x00'
+            self.sio_writer.send(self.encoder.encode(data))
+        except Exception as e:
+            self.app.exception(e)
+
+    def get_all_beacons(self):
+        """Fetch all beacons from the device."""
+        if self.sio_writer is None: return
+        for i in range(self.beacon_count):
+            data = bytes([0x06, 0xC1, 0x8D, i])
+            self.sio_writer.send(self.encoder.encode(data))
 
 
