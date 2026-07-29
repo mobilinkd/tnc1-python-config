@@ -232,13 +232,14 @@ class TncConfigApp(object):
             self.transport_combo_box_text.append('serial', 'Serial')
         if HAVE_BLUETOOTH:
             self.transport_combo_box_text.append('bluetooth', 'Bluetooth')
-        # Default to serial when available (typical desktop use), else BT.
+        # Default to Bluetooth (normal case for our TNCs); serial is for
+        # Arduino / Nucleo32 breadboard and kit projects.
         # Block the changed handler so this initial selection does not kick
         # off a scan -- begin_scan() below handles the first discovery.
         self.transport_combo_box_text.handler_block_by_func(
             self.on_transport_combo_box_changed)
         self.transport_combo_box_text.set_active_id(
-            'serial' if HAVE_SERIAL else 'bluetooth')
+            'bluetooth' if HAVE_BLUETOOTH else 'serial')
         self.transport_combo_box_text.handler_unblock_by_func(
             self.on_transport_combo_box_changed)
 
