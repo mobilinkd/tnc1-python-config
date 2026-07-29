@@ -55,29 +55,47 @@ class TestSerialTransport(unittest.TestCase):
 class TestDiscoveryDispatch(unittest.TestCase):
     """available_devices() must route to the right backend by transport."""
 
-    def test_serial_dispatch(self):
-        # When pyserial is absent at import time, TncModel.serial is never
-        # bound.  Inject a fake serial module so available_serial_devices()
-        # has something to enumerate, independent of test ordering.
+    def _with_fake_serial(self, ports):
+        """Run serial discovery against a fake pyserial module.
+
+        When pyserial is absent at import time, TncModel.serial is never
+        bound, so we inject a fake module and restore state afterwards.
+        Returns the discovered device list.
+        """
         fake_serial = MagicMock()
-        fake_ports = [MagicMock(device='/dev/ttyUSB0', description='TNC')]
-        fake_serial.tools.list_ports.comports.return_value = fake_ports
+        fake_serial.tools.list_ports.comports.return_value = ports
         had_serial = getattr(TncModel, 'serial', None)
         had_flag = TncModel.HAVE_SERIAL
         TncModel.serial = fake_serial
         TncModel.HAVE_SERIAL = True
         try:
-            devices = TncModel.available_devices('serial')
+            return TncModel.available_devices('serial')
         finally:
             TncModel.HAVE_SERIAL = had_flag
             if had_serial is None:
                 del TncModel.serial
             else:
                 TncModel.serial = had_serial
+
+    def test_serial_dispatch(self):
+        devices = self._with_fake_serial(
+            [MagicMock(device='/dev/ttyUSB0', description='TNC')])
         self.assertEqual(len(devices), 1)
         self.assertEqual(devices[0]['host'], '/dev/ttyUSB0')
         self.assertEqual(devices[0]['name'], 'TNC')
         self.assertEqual(devices[0]['port'], 0)
+
+    def test_serial_filters_out_legacy_uarts(self):
+        # Only USB serial adapters (ttyUSB*/ttyACM*) should be listed.
+        # Legacy PC UARTs (ttyS*) are never used for a TNC.
+        devices = self._with_fake_serial([
+            MagicMock(device='/dev/ttyUSB0', description='FT232'),
+            MagicMock(device='/dev/ttyACM0', description='STM32 CDC'),
+            MagicMock(device='/dev/ttyS0', description='16550A'),
+            MagicMock(device='/dev/ttyS1', description='16550A'),
+        ])
+        hosts = [d['host'] for d in devices]
+        self.assertEqual(hosts, ['/dev/ttyUSB0', '/dev/ttyACM0'])
 
     def test_serial_missing_returns_empty(self):
         with patch.object(TncModel, 'HAVE_SERIAL', False):
