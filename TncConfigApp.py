@@ -138,6 +138,7 @@ class TncConfigApp(object):
             return None
     
     def on_scan_complete(self, device = None):
+        if self.tnc is None: return
         
         self.scan_thd.join()
         self.serial_port_combo_box_text.remove_all()
@@ -287,30 +288,36 @@ class TncConfigApp(object):
             self.tnc.stream_audio_off()
     
     def on_input_attenuation_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_input_atten(widget.get_active())
         self.tnc.stream_audio_on()
     
     def on_input_gain_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_input_update_time > 0.1:
             self.tnc.set_input_gain(int(widget.get_value()))
             self.last_audio_input_update_time = now
             
     def on_input_gain_scale_button_release_event(self, widget, data = None):
+        if self.tnc is None: return
         self.tnc.set_input_gain(int(widget.get_value()))
         self.last_audio_input_update_time = time.time()
     
     def on_input_twist_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_input_update_time > 0.1:
             self.tnc.set_input_twist(int(widget.get_value()))
             self.last_audio_input_update_time = now
     
     def on_input_twist_scale_button_release_event(self, widget, event, data = None):
+        if self.tnc is None: return
         self.tnc.set_input_twist(int(widget.get_value()))
         self.last_audio_input_update_time = time.time()
     
     def on_input_auto_adjust_button_clicked(self, widget):
+        if self.tnc is None: return
         self.tnc.adjust_input()
 
     
@@ -357,6 +364,7 @@ class TncConfigApp(object):
         pass
     
     def on_output_gain_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_output_update_time >= .1:
             # print('on_output_gain_adjustment_value_changed =', widget.get_value())
@@ -364,35 +372,42 @@ class TncConfigApp(object):
             self.last_audio_output_update_time = now
 
     def on_output_gain_scale_button_release_event(self, widget, data = None):
+        if self.tnc is None: return
         self.tnc.set_tx_volume(int(widget.get_value()))
         self.last_audio_output_update_time = time.time()
 
     def on_output_twist_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_output_update_time >= .1:
             self.tnc.set_tx_twist(int(widget.get_value()))
             self.last_audio_output_update_time = now
 
     def on_output_twist_scale_button_release_event(self, widget, data = None):
+        if self.tnc is None: return
         self.tnc.set_tx_twist(int(widget.get_value()))
         self.last_audio_output_update_time = time.time()
 
     def on_mark_tone_radio_button_toggled(self, widget):
+        if self.tnc is None: return
         if widget.get_active():
             self.tnc.set_mark(True)
             self.tnc.set_space(False)
 
     def on_space_tone_radio_button_toggled(self, widget):
+        if self.tnc is None: return
         if widget.get_active():
             self.tnc.set_mark(False)
             self.tnc.set_space(True)
 
     def on_both_tone_radio_button_toggled(self, widget):
+        if self.tnc is None: return
         if widget.get_active():
             self.tnc.set_mark(True)
             self.tnc.set_space(True)
 
     def on_transmit_toggle_button_toggled(self, widget):
+        if self.tnc is None: return
         
         if widget.get_active():
             self.tnc.set_mark(self.mark_tone_radio_button.get_active() or self.both_tone_radio_button.get_active())
@@ -412,6 +427,7 @@ class TncConfigApp(object):
         self.power_off_check_button = self.builder.get_object("power_off_check_button")
     
     def on_power_settings_enter(self):
+        if self.tnc is None: return
         # print('on_power_settings_enter')
         self.tnc.get_battery_level()
         
@@ -420,9 +436,11 @@ class TncConfigApp(object):
         pass
         
     def on_power_on_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_usb_on(widget.get_active())
 
     def on_power_off_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_usb_off(widget.get_active())
         
 
@@ -444,36 +462,43 @@ class TncConfigApp(object):
         pass
 
     def on_tx_delay_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_kiss_parameter_update_time >= .1:
             self.tnc.set_tx_delay(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
    
     def on_tx_delay_spin_button_button_release_event(self, widget, event):
+        if self.tnc is None: return
         self.tnc.set_tx_delay(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
 
     def on_slot_time_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_kiss_parameter_update_time >= .1:
             self.tnc.set_time_slot(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
 
     def on_slot_time_spin_button_button_release_event(self, widget, event):
+        if self.tnc is None: return
         self.tnc.set_time_slot(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
 
     def on_p_persistence_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_kiss_parameter_update_time >= .1:
             self.tnc.set_persistence(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
 
     def on_p_persist_spin_button_button_release_event(self, widget, event):
+        if self.tnc is None: return
         self.tnc.set_persistence(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
         
     def on_full_duplex_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_duplex(widget.get_active())
 
 
@@ -499,26 +524,33 @@ class TncConfigApp(object):
         self.modem_settings_active = False
         
     def on_dcd_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_squelch_level((not widget.get_active()) * 2)
     
     def on_connection_tracking_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_conn_track(widget.get_active())
     
     def on_verbose_output_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_verbosity(widget.get_active())
 
     def on_passall_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_passall(widget.get_active())
 
     def on_rx_reverse_polarity_check_button_toggled(self, widget):
+        if self.tnc is None: return
         if self.tx_reverse_polarity_check_button.get_visible():
             self.tnc.set_rx_reverse_polarity(widget.get_active())
         
     def on_tx_reverse_polarity_check_button_toggled(self, widget):
+        if self.tnc is None: return
         if self.rx_reverse_polarity_check_button.get_visible():
             self.tnc.set_tx_reverse_polarity(widget.get_active())
 
     def on_modem_type_combo_box_text_changed(self, widget):
+        if self.tnc is None: return
         modem_number = self.get_modem_number(widget.get_active_text())
         if modem_number is None: return
         if self.modem_settings_active:
@@ -571,6 +603,7 @@ class TncConfigApp(object):
         self.upload_button.set_sensitive(True)
 
     def on_upload_button_clicked(self, widget, data=None):
+        if self.tnc is None: return
 
         confirm = Gtk.MessageDialog(
             parent=self.main_window, flags=0,
@@ -611,6 +644,7 @@ class TncConfigApp(object):
         pass
 
     def on_save_settings_button_clicked(self, widget):
+        if self.tnc is None: return
         self.tnc.save_eeprom_settings()
 
     ### Digipeater...
@@ -703,6 +737,7 @@ class TncConfigApp(object):
         self.tnc.set_digipeater(enabled, routing_mode, dedupe)
 
     def on_alias_apply_button_clicked(self, widget, index):
+        if self.tnc is None: return
         if index >= len(self.alias_rows): return
         row = self.alias_rows[index]
         call = row['call_entry'].get_text()
@@ -737,6 +772,7 @@ class TncConfigApp(object):
         pass
 
     def on_beacon_apply_button_clicked(self, widget, slot):
+        if self.tnc is None: return
         if slot >= len(self.beacon_widgets): return
         w = self.beacon_widgets[slot]
         if w['enable'] is not None and not w['enable'].get_active():

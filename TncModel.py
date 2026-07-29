@@ -172,8 +172,8 @@ class TncModel(object):
     
     SET_OUTPUT_VOLUME=bytes(b'\x06\x01%c')
     SET_OUTPUT_GAIN=bytes(b'\x06\x01%c%c')     # API 2.0, 16-bit signed
-    SET_INPUT_TWIST=bytes(b'\x06\x18\%s')      # API 2.0, 0-100
-    SET_OUTPUT_TWIST=bytes(b'\x06\x1a\%c')     # API 2.0, 0-100
+    SET_INPUT_TWIST=bytes(b'\x06\x18\\%s')      # API 2.0, 0-100
+    SET_OUTPUT_TWIST=bytes(b'\x06\x1a\\%c')     # API 2.0, 0-100
     SET_INPUT_ATTEN=bytes(b'\06\02%c')
     SET_INPUT_GAIN=bytes(b'\06\02%c%c')        # API 2.0, 16-bit signed
     SET_SQUELCH_LEVEL=bytes(b'\06\03%c')
