@@ -138,7 +138,6 @@ class TncConfigApp(object):
             return None
     
     def on_scan_complete(self, device = None):
-        if self.tnc is None: return
         
         self.scan_thd.join()
         self.serial_port_combo_box_text.remove_all()
