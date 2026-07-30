@@ -80,15 +80,15 @@ buildOptions = dict(
 
 setup(
     name = "TncConfigApp",
-    version = "1.4.0",
+    version = "2.0.0",
     author = "Mobilinkd LLC",
     author_email = "mobilinkd@gmail.com",
     url = "https://github.com/mobilinkd/tnc1-python-config",
     license = "Apache 2.0",
-    description = "Configuration tool for Mobilinkd TNC1, TNC2 and TNC3",
+    description = "Configuration tool for Mobilinkd TNC1, TNC2, TNC3 and TNC4",
     long_description = 
-"""This program is used to connect to a Mobilinkd TNC via RFCOMM only (not
-serial port) and is used to set the transmit volume level, monitor receive
+"""This program is used to connect to a Mobilinkd TNC via serial port or
+Bluetooth SPP and is used to set the transmit volume level, monitor receive
 volume level so it can be properly adjusted on the radio, set the KISS
 parameters, and upload new firmware to TNC1 & TNC2 devices.""",
     options = dict(build_exe = buildOptions),

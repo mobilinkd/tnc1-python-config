@@ -6,14 +6,17 @@ This is a Windows and Linux GUI app written in Python, GTK+, GObject using
 Glade.  Any help getting this to work on Apple OSX would be most welcome.
 
 It allows one to monitor the input volume, adjust the output volume, and set
-the KISS parameters of the Mobilinkd TNC.
+the KISS parameters of the Mobilinkd TNC. Supports TNC1, TNC2, TNC3, and TNC4.
+
+Connects via serial port (USB) or Bluetooth SPP (RFCOMM). A transport selector
+in the connection bar allows switching between the two.
 
 The firmware upload portion is now complete.  The bootloader on the TNC is
 XBoot++, an AVR109 (butterfly) style bootloader.  Please see the AVR109 spec
 and sample code from Atmel, along with the avrdude source, for details
 on the bootloader protocol.
 
-This package has dependencies on pygobject3, pyserial and, on Windows,
+This package has dependencies on PyGObject, pyserial, PyBluez and, on Windows,
 cx_freeze.
 
 # Windows Build

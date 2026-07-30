@@ -3282,8 +3282,7 @@
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes">&lt;span foreground="blue" size="x-large"&gt;TncConfigApp&lt;/span&gt;
-&lt;span foreground="blue" size="medium"&gt;RFCOMM Variant&lt;/span&gt;
-&lt;span font_weight="bold"&gt;Version 1.3.0&lt;/span&gt;
+&lt;span font_weight="bold"&gt;Version 2.0.0&lt;/span&gt;
 2021-01-01
 Copyright 2013-2026 Mobilinkd LLC</property>
                             <property name="use_markup">True</property>
