@@ -226,6 +226,43 @@ class SerialTransport(object):
         self._ser.close()
 
 
+def decode_call_t(data):
+    """Decode an 8-byte call_t wire field into a callsign string.
+
+    Firmware call_t layout (see KissTypes.hpp):
+        [0..5] callsign characters, space-padded
+        [6]    pad (0)
+        [7]    ssid (0-15)
+
+    Returns "WIDE1" for ssid 0, or "WIDE1-1" for a non-zero ssid.
+    """
+    callsign = bytes(data[0:6]).decode('ascii', errors='replace').rstrip(' ')
+    ssid = data[7] if len(data) > 7 else 0
+    if ssid:
+        return "{}-{}".format(callsign, ssid)
+    return callsign
+
+
+def encode_call_t(call):
+    """Encode a callsign string into an 8-byte call_t wire field.
+
+    Accepts "WIDE1" or "WIDE1-1".  The callsign is space-padded to 6 chars,
+    byte 6 is the pad (0), and byte 7 is the SSID (0-15).
+    """
+    ssid = 0
+    callsign = call
+    dash = call.rfind('-')
+    if dash != -1:
+        callsign = call[:dash]
+        try:
+            ssid = int(call[dash + 1:])
+        except ValueError:
+            ssid = 0
+        ssid = max(0, min(15, ssid))
+    callsign = callsign[:6]
+    return callsign.encode('ascii').ljust(6, b' ') + b'\x00' + bytes([ssid])
+
+
 class TncModel(object):
 
     SET_TX_DELAY = bytes(b'\01%c')
@@ -726,9 +763,10 @@ class TncModel(object):
         self.app.tnc_digipeater_settings(enabled, routing_mode, dedupe_seconds)
 
     def handle_get_alias(self, packet):
-        # packet.data = [index, call[0..7], set, use, hops]
+        # packet.data = [index, call_t(8), set, use, hops]
+        # call_t = [callsign[6] space-padded][pad][ssid]
         index = packet.data[0]
-        call = packet.data[1:9].rstrip(b'\x00').decode('ascii', errors='replace')
+        call = decode_call_t(packet.data[1:9])
         set_flag = packet.data[9] if len(packet.data) > 9 else 0
         use_flag = packet.data[10] if len(packet.data) > 10 else 0
         hops = packet.data[11] if len(packet.data) > 11 else 0
@@ -1022,8 +1060,8 @@ class TncModel(object):
     def set_alias(self, index, call, set_flag, use_flag, hops):
         if self.sio_writer is None: return
         try:
-            call_bytes = call.encode('ascii')[:8].ljust(8, b'\x00')
-            data = bytes([0x06, 0xC1, 0x8A, index]) + call_bytes + bytes([set_flag, use_flag, hops])
+            # call_t = [callsign[6] space-padded][pad][ssid] (8 bytes)
+            data = bytes([0x06, 0xC1, 0x8A, index]) + encode_call_t(call) + bytes([set_flag, use_flag, hops])
             self.sio_writer.send(self.encoder.encode(data))
         except Exception as e:
             self.app.exception(e)

@@ -20,7 +20,7 @@ sys.modules['bluetooth'] = MagicMock()
 # Add the app directory to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from TncModel import KissEncode, KissDecode, KissData, TncModel
+from TncModel import KissEncode, KissDecode, KissData, TncModel, decode_call_t, encode_call_t
 
 
 class TestKissEncodeDecode(unittest.TestCase):
@@ -72,17 +72,18 @@ class TestKissEncodeDecode(unittest.TestCase):
         self.assertEqual(packet.data[1], 4)
 
     def test_encode_decode_alias_response(self):
-        """Decode an EXT_GET_ALIAS response with NUL-padded callsign."""
-        # [0x06, 0xC1, 0x89, index, call[0..7], set, use, hops]
-        # call = "WIDE" padded to 8 bytes with NUL
-        call = b'WIDE\x00\x00\x00\x00'
-        raw = bytes([0x06, 0xC1, 0x89, 0]) + call + bytes([1, 1, 2])
+        """Decode an EXT_GET_ALIAS response with an SSID-bearing call_t."""
+        # [0x06, 0xC1, 0x89, index, call_t(8), set, use, hops]
+        # call_t = [callsign[6] space-padded][pad=0][ssid]
+        # "WIDE1" with ssid=1 -> callsign "WIDE1 " (space-padded), pad 0, ssid 1
+        call_t = b'WIDE1 \x00\x01'
+        raw = bytes([0x06, 0xC1, 0x89, 0]) + call_t + bytes([1, 1, 2])
         packet = self._round_trip(raw)
         self.assertIsNotNone(packet)
         self.assertEqual(packet.data[0], 0x89)
         self.assertEqual(packet.data[1], 0)  # index
-        # call is bytes 2..9 (after peeling ext type and index)
-        self.assertEqual(packet.data[2:10], call)
+        # call_t is bytes 2..9 (after peeling ext type and index)
+        self.assertEqual(packet.data[2:10], call_t)
         self.assertEqual(packet.data[10], 1)  # set
         self.assertEqual(packet.data[11], 1)  # use
         self.assertEqual(packet.data[12], 2)  # hops
@@ -171,12 +172,21 @@ class TestTncModelHandlers(unittest.TestCase):
         self.mock_app.tnc_digipeater_settings.assert_called_once_with(1, 0x40, 30)
 
     def test_handle_get_alias(self):
-        """Test that handle_get_alias calls app.tnc_alias with parsed values."""
-        call = b'WIDE\x00\x00\x00\x00'
-        data = bytes([0x89, 0]) + call + bytes([1, 1, 2])
+        """Test that handle_get_alias parses call_t (with SSID) correctly."""
+        # call_t for "WIDE1" ssid=1: callsign "WIDE1 " (space-padded), pad 0, ssid 1
+        call_t = b'WIDE1 \x00\x01'
+        data = bytes([0x89, 0]) + call_t + bytes([1, 1, 2])
         packet = self._make_packet(0xC1, data)
         self.tnc.handle_extended_range_1(packet)
-        self.mock_app.tnc_alias.assert_called_once_with(0, 'WIDE', 1, 1, 2)
+        self.mock_app.tnc_alias.assert_called_once_with(0, 'WIDE1-1', 1, 1, 2)
+
+    def test_handle_get_alias_no_ssid(self):
+        """call_t with ssid=0 renders without a dash."""
+        call_t = b'WIDE2 \x00\x00'
+        data = bytes([0x89, 3]) + call_t + bytes([1, 0, 2])
+        packet = self._make_packet(0xC1, data)
+        self.tnc.handle_extended_range_1(packet)
+        self.mock_app.tnc_alias.assert_called_once_with(3, 'WIDE2', 1, 0, 2)
 
     def test_handle_get_beacon(self):
         """Test that handle_get_beacon calls app.tnc_beacon with parsed values."""
@@ -211,6 +221,38 @@ class TestTncModelHandlers(unittest.TestCase):
         self.assertEqual(TncModel.HANDLE_EXT1_GET_BEACON, 0x8D)
         self.assertEqual(TncModel.HANDLE_EXT1_SET_BEACON, 0x8E)
         self.assertEqual(TncModel.HANDLE_EXT1_SET_DIGIPEATER, 0x8F)
+
+
+class TestCallTCodec(unittest.TestCase):
+    """Test call_t encode/decode against the firmware 8-byte wire layout:
+    [callsign[6] space-padded][pad=0][ssid]."""
+
+    def test_encode_with_ssid(self):
+        self.assertEqual(encode_call_t("WIDE1-1"), b'WIDE1 \x00\x01')
+
+    def test_encode_no_ssid(self):
+        self.assertEqual(encode_call_t("WIDE2"), b'WIDE2 \x00\x00')
+
+    def test_encode_full_length(self):
+        # 6-char callsign, no padding needed
+        self.assertEqual(encode_call_t("ABCDEF-5"), b'ABCDEF\x00\x05')
+
+    def test_encode_ssid_clamped(self):
+        # SSID above 15 is clamped to 15
+        self.assertEqual(encode_call_t("WIDE1-99"), b'WIDE1 \x00\x0f')
+
+    def test_decode_with_ssid(self):
+        self.assertEqual(decode_call_t(b'WIDE1 \x00\x01'), "WIDE1-1")
+
+    def test_decode_no_ssid(self):
+        self.assertEqual(decode_call_t(b'WIDE2 \x00\x00'), "WIDE2")
+
+    def test_decode_strips_space_padding(self):
+        self.assertEqual(decode_call_t(b'WIDE  \x00\x02'), "WIDE-2")
+
+    def test_round_trip(self):
+        for call in ["WIDE1-1", "WIDE2", "WX9O-1", "RELAY", "ECHO-15"]:
+            self.assertEqual(decode_call_t(encode_call_t(call)), call)
 
 
 if __name__ == '__main__':
