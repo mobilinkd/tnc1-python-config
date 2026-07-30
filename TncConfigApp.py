@@ -4,6 +4,7 @@ import sys
 import os
 import gi
 import time
+import threading
 
 # On Windows, when using cx_Freeze, the location of the typelib files are moved
 # to a non-standard location.  The GI_TYPELIB_PATH environment variable needs
@@ -17,9 +18,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
 from gi.repository import Gtk,Gdk,GLib,GObject,Notify
 
-import serial.tools.list_ports
-
-from TncModel import TncModel
+from TncModel import TncModel, available_devices, HAVE_SERIAL, HAVE_BLUETOOTH
 
 def glade_location():
 
@@ -53,8 +52,10 @@ class TncConfigApp(object):
         cssProvider = Gtk.CssProvider()
         if os.name == 'nt':
             cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp-win.css'))
+            os.environ['GI_TYPELIB_PATH']=os.path.join(os.path.dirname(sys.executable), "Lib", "girepository-1.0")
         else:
             cssProvider.load_from_path(os.path.join(glade_location(), 'glade/TncConfigApp.css'))
+            
         Gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(),
             cssProvider,
@@ -76,6 +77,7 @@ class TncConfigApp(object):
             5 : "M17 4-FSK"
         }
         self.supported_modem_types = {}
+        self.modem_type = None
 
         self.init_audio_input_frame()
         self.init_audio_output_frame()
@@ -85,10 +87,12 @@ class TncConfigApp(object):
         self.init_tnc_information_frame()
         self.init_update_firmware_frame()
         self.init_save_settings_frame()
+        self.init_digipeater_frame()
+        self.init_beacon_frame()
         self.init_about_frame()
 
         self.builder.connect_signals(self)
-        self.init_serial_port_combobox()
+        self.init_serial_port_combobox(device_path)
         
         self.main_window.show()
          
@@ -123,28 +127,155 @@ class TncConfigApp(object):
 
     ### Main UI Section
     
-    def init_serial_port_combobox(self):
+    def get_available_device(self, host):
+        
+        result = [x for x in self.available_devices if x['host'] == host]
+        if result:
+            return result[0]
+        else:
+            return None
+    
+    def current_transport(self):
+        transport = self.transport_combo_box_text.get_active_id()
+        return transport if transport is not None else 'bluetooth'
+
+    def set_transport_selector_sensitive(self, sensitive):
+        """The transport selector is only usable while disconnected and idle."""
+        self.transport_combo_box_text.set_sensitive(sensitive)
+
+    def populate_devices(self, devices, select_host=None):
+        """Fill the device combo from a list of device dicts."""
+        self.serial_port_combo_box_text.remove_all()
+        self.serial_port_combo_box_text.set_active(-1)
+        self.device = None
+
+        index = 0
+        active = -1
+        for dev in devices:
+            self.serial_port_combo_box_text.append(
+                dev['host'], '{} - {}'.format(dev['name'], dev['host']))
+            if select_host is not None and select_host == dev['host']:
+                self.serial_port_combo_box_text.set_active(index)
+                active = index
+                self.device = dev
+            index += 1
+
+        if active == -1 and devices:
+            self.serial_port_combo_box_text.set_active(0)
+            self.serial_port_combo_box_text.set_sensitive(True)
+
+    def on_scan_complete(self, device = None):
+        
+        # The Bluetooth path runs discovery on a worker thread; join it.
+        # The serial path runs synchronously and has no thread to join.
+        if getattr(self, 'scan_thd', None) is not None and self.scan_thd.is_alive():
+            self.scan_thd.join()
+        self.populate_devices(self.available_devices, device)
+
+        self.refresh_spinner.stop()
+        self.connect_button.set_sensitive(bool(self.available_devices))
+        self.refresh_button.set_sensitive(True)
+        self.set_transport_selector_sensitive(True)
+        
+        if self.device is not None:
+            self.refresh_button.set_sensitive(False)
+            self.set_transport_selector_sensitive(False)
+            self.connect_button.set_active(True)
+            self.reset_ui()
+            self.tnc = TncModel(self, self.device, self.current_transport())
+            self.tnc.connect()
+
+    def scan_for_devices(self, device):
+        
+        self.available_devices = available_devices(self.current_transport())
+        GLib.idle_add(self.on_scan_complete, device)
+
+    def begin_scan(self, device=None):
+        """Kick off device discovery for the current transport.
+
+        Serial enumeration is fast and synchronous, so it runs inline.
+        Bluetooth discovery can take several seconds, so it runs on a
+        worker thread with the spinner running.
+        """
+        self.connect_button.set_sensitive(False)
+        self.refresh_button.set_sensitive(False)
+        self.set_transport_selector_sensitive(False)
+        self.serial_port_combo_box_text.remove_all()
+        self.serial_port_combo_box_text.append(None, "Scanning for devices...")
+        self.serial_port_combo_box_text.set_active(0)
+        self.serial_port_combo_box_text.set_sensitive(False)
+
+        if self.current_transport() == 'serial':
+            self.available_devices = available_devices('serial')
+            self.on_scan_complete(device)
+        else:
+            self.refresh_spinner.start()
+            self.scan_thd = threading.Thread(
+                target=self.scan_for_devices, args=(device,))
+            self.scan_thd.start()
+
+    def init_serial_port_combobox(self, device):
+        
+        self.transport_combo_box_text = self.builder.get_object("transport_combo_box_text")
         self.connect_button = self.builder.get_object("connect_button")
         self.connect_button.set_sensitive(False)
+        self.refresh_button = self.builder.get_object("refresh_button")
+        self.refresh_button.set_sensitive(False)
+        self.refresh_spinner = self.builder.get_object("refresh_spinner")
+        self.serial_port_combo_box = self.builder.get_object("serial_port_combo_box")
         self.serial_port_combo_box_text = self.builder.get_object("serial_port_combo_box_text")
         assert(self.serial_port_combo_box_text is not None)
-        for port in serial.tools.list_ports.comports():
-            self.serial_port_combo_box_text.append_text(port[0])
-        
+
+        # Offer only the transports whose libraries are installed.
+        self.transport_combo_box_text.remove_all()
+        if HAVE_SERIAL:
+            self.transport_combo_box_text.append('serial', 'Serial')
+        if HAVE_BLUETOOTH:
+            self.transport_combo_box_text.append('bluetooth', 'Bluetooth')
+        # Default to Bluetooth (normal case for our TNCs); serial is for
+        # Arduino / Nucleo32 breadboard and kit projects.
+        # Block the changed handler so this initial selection does not kick
+        # off a scan -- begin_scan() below handles the first discovery.
+        self.transport_combo_box_text.handler_block_by_func(
+            self.on_transport_combo_box_changed)
+        self.transport_combo_box_text.set_active_id(
+            'bluetooth' if HAVE_BLUETOOTH else 'serial')
+        self.transport_combo_box_text.handler_unblock_by_func(
+            self.on_transport_combo_box_changed)
+
+        self.begin_scan(device)
+
+    def on_transport_combo_box_changed(self, widget):
+        # Ignore changes triggered while connected or mid-scan; the selector
+        # is insensitive then, but guard against programmatic set_active too.
+        if self.tnc is not None:
+            return
+        self.begin_scan(None)
+
     def on_connect_button_toggled(self, widget):
     
         if widget.get_active():
-            self.tnc = TncModel(self, self.device_path)
+            self.refresh_button.set_sensitive(False)
+            self.set_transport_selector_sensitive(False)
+            host = self.serial_port_combo_box_text.get_active_id()
+            self.device = self.get_available_device(host)
+            self.reset_ui()
+            self.tnc = TncModel(self, self.device, self.current_transport())
             self.tnc.connect()
         elif self.tnc is not None:   # Possible race condition here...
             self.tnc.disconnect()
             self.tnc = None
-            
+            self.refresh_button.set_sensitive(True)
+            self.set_transport_selector_sensitive(True)
+    
+    def on_refresh_button_clicked(self, widget):
+        
+        self.begin_scan(None)
+        
     
     def on_serial_port_combo_box_changed(self, widget, data = None):
         
-        self.device_path = widget.get_active_text()
-        self.connect_button.set_sensitive(True)
+        pass
     
     ### GtkStack
     def on_config_stack_visible_child_name_notify(self, widget, param):
@@ -209,30 +340,36 @@ class TncConfigApp(object):
             self.tnc.stream_audio_off()
     
     def on_input_attenuation_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_input_atten(widget.get_active())
         self.tnc.stream_audio_on()
     
     def on_input_gain_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_input_update_time > 0.1:
             self.tnc.set_input_gain(int(widget.get_value()))
             self.last_audio_input_update_time = now
             
     def on_input_gain_scale_button_release_event(self, widget, data = None):
+        if self.tnc is None: return
         self.tnc.set_input_gain(int(widget.get_value()))
         self.last_audio_input_update_time = time.time()
     
     def on_input_twist_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_input_update_time > 0.1:
             self.tnc.set_input_twist(int(widget.get_value()))
             self.last_audio_input_update_time = now
     
     def on_input_twist_scale_button_release_event(self, widget, event, data = None):
+        if self.tnc is None: return
         self.tnc.set_input_twist(int(widget.get_value()))
         self.last_audio_input_update_time = time.time()
     
     def on_input_auto_adjust_button_clicked(self, widget):
+        if self.tnc is None: return
         self.tnc.adjust_input()
 
     
@@ -279,6 +416,7 @@ class TncConfigApp(object):
         pass
     
     def on_output_gain_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_output_update_time >= .1:
             # print('on_output_gain_adjustment_value_changed =', widget.get_value())
@@ -286,35 +424,42 @@ class TncConfigApp(object):
             self.last_audio_output_update_time = now
 
     def on_output_gain_scale_button_release_event(self, widget, data = None):
+        if self.tnc is None: return
         self.tnc.set_tx_volume(int(widget.get_value()))
         self.last_audio_output_update_time = time.time()
 
     def on_output_twist_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_audio_output_update_time >= .1:
             self.tnc.set_tx_twist(int(widget.get_value()))
             self.last_audio_output_update_time = now
 
     def on_output_twist_scale_button_release_event(self, widget, data = None):
+        if self.tnc is None: return
         self.tnc.set_tx_twist(int(widget.get_value()))
         self.last_audio_output_update_time = time.time()
 
     def on_mark_tone_radio_button_toggled(self, widget):
+        if self.tnc is None: return
         if widget.get_active():
             self.tnc.set_mark(True)
             self.tnc.set_space(False)
 
     def on_space_tone_radio_button_toggled(self, widget):
+        if self.tnc is None: return
         if widget.get_active():
             self.tnc.set_mark(False)
             self.tnc.set_space(True)
 
     def on_both_tone_radio_button_toggled(self, widget):
+        if self.tnc is None: return
         if widget.get_active():
             self.tnc.set_mark(True)
             self.tnc.set_space(True)
 
     def on_transmit_toggle_button_toggled(self, widget):
+        if self.tnc is None: return
         
         if widget.get_active():
             self.tnc.set_mark(self.mark_tone_radio_button.get_active() or self.both_tone_radio_button.get_active())
@@ -334,6 +479,7 @@ class TncConfigApp(object):
         self.power_off_check_button = self.builder.get_object("power_off_check_button")
     
     def on_power_settings_enter(self):
+        if self.tnc is None: return
         # print('on_power_settings_enter')
         self.tnc.get_battery_level()
         
@@ -342,9 +488,11 @@ class TncConfigApp(object):
         pass
         
     def on_power_on_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_usb_on(widget.get_active())
 
     def on_power_off_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_usb_off(widget.get_active())
         
 
@@ -366,36 +514,43 @@ class TncConfigApp(object):
         pass
 
     def on_tx_delay_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_kiss_parameter_update_time >= .1:
             self.tnc.set_tx_delay(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
    
     def on_tx_delay_spin_button_button_release_event(self, widget, event):
+        if self.tnc is None: return
         self.tnc.set_tx_delay(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
 
     def on_slot_time_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_kiss_parameter_update_time >= .1:
             self.tnc.set_time_slot(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
 
     def on_slot_time_spin_button_button_release_event(self, widget, event):
+        if self.tnc is None: return
         self.tnc.set_time_slot(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
 
     def on_p_persistence_adjustment_value_changed(self, widget):
+        if self.tnc is None: return
         now = time.time()
         if now - self.last_kiss_parameter_update_time >= .1:
             self.tnc.set_persistence(int(widget.get_value()))
             self.last_kiss_parameter_update_time = now
 
     def on_p_persist_spin_button_button_release_event(self, widget, event):
+        if self.tnc is None: return
         self.tnc.set_persistence(int(widget.get_value()))
         self.last_kiss_parameter_update_time = time.time()
         
     def on_full_duplex_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_duplex(widget.get_active())
 
 
@@ -421,26 +576,33 @@ class TncConfigApp(object):
         self.modem_settings_active = False
         
     def on_dcd_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_squelch_level((not widget.get_active()) * 2)
     
     def on_connection_tracking_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_conn_track(widget.get_active())
     
     def on_verbose_output_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_verbosity(widget.get_active())
 
     def on_passall_check_button_toggled(self, widget):
+        if self.tnc is None: return
         self.tnc.set_passall(widget.get_active())
 
     def on_rx_reverse_polarity_check_button_toggled(self, widget):
+        if self.tnc is None: return
         if self.tx_reverse_polarity_check_button.get_visible():
             self.tnc.set_rx_reverse_polarity(widget.get_active())
         
     def on_tx_reverse_polarity_check_button_toggled(self, widget):
+        if self.tnc is None: return
         if self.rx_reverse_polarity_check_button.get_visible():
             self.tnc.set_tx_reverse_polarity(widget.get_active())
 
     def on_modem_type_combo_box_text_changed(self, widget):
+        if self.tnc is None: return
         modem_number = self.get_modem_number(widget.get_active_text())
         if modem_number is None: return
         if self.modem_settings_active:
@@ -493,6 +655,7 @@ class TncConfigApp(object):
         self.upload_button.set_sensitive(True)
 
     def on_upload_button_clicked(self, widget, data=None):
+        if self.tnc is None: return
 
         confirm = Gtk.MessageDialog(
             parent=self.main_window, flags=0,
@@ -533,7 +696,146 @@ class TncConfigApp(object):
         pass
 
     def on_save_settings_button_clicked(self, widget):
+        if self.tnc is None: return
         self.tnc.save_eeprom_settings()
+
+    ### Digipeater...
+    def init_digipeater_frame(self):
+        self.digipeater_frame = self.builder.get_object("digipeater_frame")
+        self.digipeater_frame.set_visible(False)
+
+        self.digipeater_enable_check_button = self.builder.get_object(
+            "digipeater_enable_check_button")
+        self.dedupe_seconds_spin_button = self.builder.get_object(
+            "dedupe_seconds_spin_button")
+
+        # Routing mode check buttons
+        self.substitute_check_button = self.builder.get_object(
+            "substitute_check_button")
+        self.skip_complete_check_button = self.builder.get_object(
+            "skip_complete_check_button")
+        self.preempt_front_check_button = self.builder.get_object(
+            "preempt_front_check_button")
+        self.preempt_truncate_check_button = self.builder.get_object(
+            "preempt_truncate_check_button")
+        self.preempt_drop_check_button = self.builder.get_object(
+            "preempt_drop_check_button")
+        self.preempt_mark_check_button = self.builder.get_object(
+            "preempt_mark_check_button")
+
+        # Alias table -- 8 rows in a GtkGrid
+        self.alias_rows = []
+        for i in range(8):
+            self.alias_rows.append({
+                'call_entry': self.builder.get_object(f"alias{i}_call_entry"),
+                'use_check': self.builder.get_object(f"alias{i}_use_check_button"),
+                'hops_spin': self.builder.get_object(f"alias{i}_hops_spin_button"),
+                'set_label': self.builder.get_object(f"alias{i}_set_label"),
+                'apply_button': self.builder.get_object(f"alias{i}_apply_button"),
+            })
+            # Wire up apply button with index -- can't be done via Glade
+            # auto-connect because the index must be passed as user_data.
+            btn = self.alias_rows[i]['apply_button']
+            if btn is not None:
+                btn.connect("clicked", self.on_alias_apply_button_clicked, i)
+
+    def on_digipeater_enter(self):
+        pass
+
+    def on_digipeater_leave(self):
+        pass
+
+    def on_digipeater_enable_check_button_toggled(self, widget):
+        self.update_digipeater_settings()
+
+    def on_dedupe_seconds_spin_button_value_changed(self, widget):
+        self.update_digipeater_settings()
+
+    def on_substitute_check_button_toggled(self, widget):
+        self.update_digipeater_settings()
+
+    def on_skip_complete_check_button_toggled(self, widget):
+        self.update_digipeater_settings()
+
+    def on_preempt_front_check_button_toggled(self, widget):
+        self.update_digipeater_settings()
+
+    def on_preempt_truncate_check_button_toggled(self, widget):
+        self.update_digipeater_settings()
+
+    def on_preempt_drop_check_button_toggled(self, widget):
+        self.update_digipeater_settings()
+
+    def on_preempt_mark_check_button_toggled(self, widget):
+        self.update_digipeater_settings()
+
+    def update_digipeater_settings(self):
+        if self.tnc is None: return
+        enabled = 1 if self.digipeater_enable_check_button.get_active() else 0
+        routing_mode = 0
+        if self.substitute_check_button.get_active():
+            routing_mode |= self.tnc.ROUTING_SUBSTITUTE
+        if self.skip_complete_check_button.get_active():
+            routing_mode |= self.tnc.ROUTING_SKIP_COMPLETE
+        if self.preempt_front_check_button.get_active():
+            routing_mode |= self.tnc.ROUTING_PREEMPT_FRONT
+        if self.preempt_truncate_check_button.get_active():
+            routing_mode |= self.tnc.ROUTING_PREEMPT_TRUNCATE
+        if self.preempt_drop_check_button.get_active():
+            routing_mode |= self.tnc.ROUTING_PREEMPT_DROP
+        if self.preempt_mark_check_button.get_active():
+            routing_mode |= self.tnc.ROUTING_PREEMPT_MARK
+        dedupe = int(self.dedupe_seconds_spin_button.get_value())
+        self.tnc.set_digipeater(enabled, routing_mode, dedupe)
+
+    def on_alias_apply_button_clicked(self, widget, index):
+        if self.tnc is None: return
+        if index >= len(self.alias_rows): return
+        row = self.alias_rows[index]
+        call = row['call_entry'].get_text()
+        use = 1 if row['use_check'].get_active() else 0
+        hops = int(row['hops_spin'].get_value())
+        self.tnc.set_alias(index, call, 1, use, hops)
+
+    ### Beacons...
+    def init_beacon_frame(self):
+        self.beacon_frame = self.builder.get_object("beacon_frame")
+        self.beacon_frame.set_visible(False)
+
+        self.beacon_widgets = []
+        for i in range(4):
+            self.beacon_widgets.append({
+                'enable': self.builder.get_object(f"beacon{i}_enable_check_button"),
+                'interval': self.builder.get_object(f"beacon{i}_interval_spin_button"),
+                'dest': self.builder.get_object(f"beacon{i}_dest_entry"),
+                'path': self.builder.get_object(f"beacon{i}_path_entry"),
+                'text': self.builder.get_object(f"beacon{i}_text_entry"),
+                'apply_button': self.builder.get_object(f"beacon{i}_apply_button"),
+            })
+            # Wire up apply button with slot index -- same reason as aliases.
+            btn = self.beacon_widgets[i]['apply_button']
+            if btn is not None:
+                btn.connect("clicked", self.on_beacon_apply_button_clicked, i)
+
+    def on_beacon_enter(self):
+        pass
+
+    def on_beacon_leave(self):
+        pass
+
+    def on_beacon_apply_button_clicked(self, widget, slot):
+        if self.tnc is None: return
+        if slot >= len(self.beacon_widgets): return
+        w = self.beacon_widgets[slot]
+        if w['enable'] is not None and not w['enable'].get_active():
+            # Disabled -- send interval=0 to tell firmware to stop beaconing
+            self.tnc.set_beacon(slot, 0, "", "", "")
+            return
+        interval = int(w['interval'].get_value())
+        dest = w['dest'].get_text()
+        path = w['path'].get_text()
+        text = w['text'].get_text()
+        self.tnc.set_beacon(slot, interval, dest, path, text)
 
     def init_about_frame(self):
         self.about_frame = self.builder.get_object("about_frame")
@@ -548,7 +850,138 @@ class TncConfigApp(object):
         pass
     
 ### TNC events
-    
+
+    def reset_ui(self):
+        """Hide all optional frames and reset all fields to defaults.
+
+        Called before a connection attempt and on disconnect so stale data
+        from a previous session does not bleed into the next.
+        """
+        # Audio input -- hide optional sub-boxes, reset level bar
+        self.audio_input_level_bar.set_value(0)
+        self.input_attenuation_box.set_visible(False)
+        self.input_attenuation_check_button.set_active(False)
+        self.input_gain_box.set_visible(False)
+        self.input_gain_scale.set_value(0)
+        self.input_gain_min_label.set_text("")
+        self.input_gain_max_label.set_text("")
+        self.input_twist_box.set_visible(False)
+        self.input_twist_scale.set_value(0)
+        self.input_twist_min_label.set_text("")
+        self.input_twist_max_label.set_text("")
+        self.input_auto_adjust_button.set_visible(False)
+
+        # Audio output -- hide optional sub-boxes, reset scales
+        self.ptt_style_box.set_visible(False)
+        self.ptt_simplex_radio_button.set_active(True)
+        self.output_gain_scale.set_value(0)
+        self.output_twist_box.set_visible(False)
+        self.output_twist_scale.set_value(0)
+        self.mark_tone_radio_button.set_active(False)
+        self.space_tone_radio_button.set_active(False)
+        self.both_tone_radio_button.set_active(False)
+        self.transmit_toggle_button.set_active(False)
+
+        # Power settings
+        self.power_settings_frame.set_visible(False)
+        self.battery_voltage_label.set_text("")
+        self.battery_level_bar.set_value(0)
+        self.power_on_check_button.set_sensitive(False)
+        self.power_on_check_button.set_active(False)
+        self.power_off_check_button.set_sensitive(False)
+        self.power_off_check_button.set_active(False)
+
+        # KISS parameters
+        self.tx_delay_spin_button.set_value(0)
+        self.slot_time_spin_button.set_value(0)
+        self.p_persist_spin_button.set_value(0)
+        self.full_duplex_check_button.set_sensitive(False)
+        self.full_duplex_check_button.set_active(False)
+
+        # Modem settings
+        self.modem_settings_frame.set_visible(False)
+        self.dcd_check_button.set_sensitive(False)
+        self.dcd_check_button.set_active(False)
+        self.connection_tracking_check_button.set_sensitive(False)
+        self.connection_tracking_check_button.set_active(False)
+        self.verbose_output_check_button.set_sensitive(False)
+        self.verbose_output_check_button.set_active(False)
+        self.passall_check_button.set_visible(False)
+        self.passall_check_button.set_sensitive(False)
+        self.passall_check_button.set_active(False)
+        self.modem_type_combo_box_text.remove_all()
+        self.modem_type_combo_box_text.set_visible(False)
+        self.modem_type_combo_box_text.set_sensitive(False)
+        self.rx_reverse_polarity_check_button.set_visible(False)
+        self.rx_reverse_polarity_check_button.set_sensitive(False)
+        self.rx_reverse_polarity_check_button.set_active(False)
+        self.tx_reverse_polarity_check_button.set_visible(False)
+        self.tx_reverse_polarity_check_button.set_sensitive(False)
+        self.tx_reverse_polarity_check_button.set_active(False)
+        self.modem_type = None
+        self.supported_modem_types = {}
+
+        # TNC information
+        self.hardware_version_label.set_text("")
+        self.firmware_version_label.set_text("")
+        self.firmware_update_version_label.set_text("")
+        self.mac_address_label.set_text("")
+        self.serial_number_label.set_text("")
+        self.date_time_label.set_text("")
+
+        # Firmware update
+        self.firmware_progress_bar.set_text("Select firmware image...")
+        self.firmware_progress_bar.set_fraction(0.0)
+        self.upload_button.set_sensitive(False)
+
+        # Save settings
+        self.save_settings_frame.set_visible(False)
+        self.save_settings_button.set_sensitive(False)
+
+        # Digipeater
+        self.digipeater_frame.set_visible(False)
+        self.digipeater_enable_check_button.set_active(False)
+        self.dedupe_seconds_spin_button.set_value(30)
+        self.substitute_check_button.set_active(False)
+        self.skip_complete_check_button.set_active(False)
+        self.preempt_front_check_button.set_active(False)
+        self.preempt_truncate_check_button.set_active(False)
+        self.preempt_drop_check_button.set_active(False)
+        self.preempt_mark_check_button.set_active(False)
+        for i in range(8):
+            if i < len(self.alias_rows):
+                row = self.alias_rows[i]
+                if row['call_entry'] is not None:
+                    row['call_entry'].set_text("")
+                    row['call_entry'].set_visible(False)
+                if row['use_check'] is not None:
+                    row['use_check'].set_active(False)
+                    row['use_check'].set_visible(False)
+                if row['hops_spin'] is not None:
+                    row['hops_spin'].set_value(0)
+                    row['hops_spin'].set_visible(False)
+                if row['set_label'] is not None:
+                    row['set_label'].set_text("No")
+                    row['set_label'].set_visible(False)
+                if row['apply_button'] is not None:
+                    row['apply_button'].set_visible(False)
+
+        # Beacons
+        self.beacon_frame.set_visible(False)
+        for i in range(4):
+            if i < len(self.beacon_widgets):
+                w = self.beacon_widgets[i]
+                if w['enable'] is not None:
+                    w['enable'].set_active(False)
+                if w['interval'] is not None:
+                    w['interval'].set_value(1800)
+                if w['dest'] is not None:
+                    w['dest'].set_text("")
+                if w['path'] is not None:
+                    w['path'].set_text("")
+                if w['text'] is not None:
+                    w['text'].set_text("")
+
     def tnc_connect(self):
         self.stack.set_visible_child_name('audio_input')
         self.stack.set_sensitive(True)
@@ -556,6 +989,7 @@ class TncConfigApp(object):
         self.serial_port_combo_box_text.set_sensitive(False)
         self.connect_button.set_label("gtk-disconnect")
         self.firmware_progress_bar.set_text("Select firmware image...")
+        
 
     def tnc_disconnect(self):
         self.stack.set_visible_child_name('about')
@@ -566,6 +1000,7 @@ class TncConfigApp(object):
         self.connect_button.set_active(False)
         self.tnc = None
         self.modem_type = None
+        self.reset_ui()
 
     ### Audio Input
     def tnc_rx_volume(self, value):
@@ -712,6 +1147,59 @@ class TncConfigApp(object):
         self.passall_check_button.set_visible(True)
         self.passall_check_button.set_sensitive(True)
         self.passall_check_button.set_active(value)
+
+    ### Digipeater
+
+    def tnc_digipeater_supported(self, count):
+        self.digipeater_frame.set_visible(True)
+        self.digipeater_alias_count = count
+        # Hide alias rows beyond the supported count
+        for i in range(8):
+            visible = i < count
+            if i < len(self.alias_rows):
+                for widget in self.alias_rows[i].values():
+                    if widget is not None:
+                        widget.set_visible(visible)
+
+    def tnc_digipeater_settings(self, enabled, routing_mode, dedupe_seconds):
+        self.digipeater_enable_check_button.set_active(enabled != 0)
+        self.substitute_check_button.set_active(
+            bool(routing_mode & self.tnc.ROUTING_SUBSTITUTE))
+        self.skip_complete_check_button.set_active(
+            bool(routing_mode & self.tnc.ROUTING_SKIP_COMPLETE))
+        self.preempt_front_check_button.set_active(
+            bool(routing_mode & self.tnc.ROUTING_PREEMPT_FRONT))
+        self.preempt_truncate_check_button.set_active(
+            bool(routing_mode & self.tnc.ROUTING_PREEMPT_TRUNCATE))
+        self.preempt_drop_check_button.set_active(
+            bool(routing_mode & self.tnc.ROUTING_PREEMPT_DROP))
+        self.preempt_mark_check_button.set_active(
+            bool(routing_mode & self.tnc.ROUTING_PREEMPT_MARK))
+        self.dedupe_seconds_spin_button.set_value(dedupe_seconds)
+
+    def tnc_alias(self, index, call, set_flag, use_flag, hops):
+        if index < len(self.alias_rows):
+            row = self.alias_rows[index]
+            row['call_entry'].set_text(call)
+            row['use_check'].set_active(use_flag != 0)
+            row['hops_spin'].set_value(hops)
+            row['set_label'].set_text("Yes" if set_flag else "No")
+
+    ### Beacons
+
+    def tnc_beacon_supported(self, count):
+        self.beacon_frame.set_visible(True)
+        self.beacon_count = count
+
+    def tnc_beacon(self, slot, interval, dest, path, text):
+        if slot < len(self.beacon_widgets):
+            w = self.beacon_widgets[slot]
+            if w['enable'] is not None:
+                w['enable'].set_active(interval > 0)
+            w['interval'].set_value(interval)
+            w['dest'].set_text(dest)
+            w['path'].set_text(path)
+            w['text'].set_text(text)
     
     ### TNC Information
     
@@ -835,5 +1323,8 @@ class TncConfigApp(object):
 
 if __name__ == '__main__':
 
-    app = TncConfigApp()
+    device_path = None
+    if len(sys.argv) > 1:
+        device_path = sys.argv[1]
+    app = TncConfigApp(device_path)
 

@@ -6,6 +6,7 @@
 from IntelHexRecord import IntelHexRecord
 from Avr109 import Avr109
 
+from builtins import bytes, chr
 import time
 import sys
 import os
@@ -99,11 +100,11 @@ class BootLoader(object):
         self.device_list = self.avr109.get_device_list()
         self.signature = self.avr109.get_device_signature()
  
-        #         print "  Found programmer: Id = '%s'; type = '%s'" % (self.loader, self.programmer_type)
-        #         print "Programmer Version: %s" % self.sw_version
-        #         print "Has auto-increment: %s" % (str(self.auto_increment))
-        #         print "    Has block-mode: %s (size = %d)" % (str(self.block_size > 0), self.block_size)
-        #         print "  Device Signature: %02x %02x %02x" % (ord(self.signature[0]),ord(self.signature[1]),ord(self.signature[2]))
+        print("  Found programmer: Id = '%s'; type = '%s'" % (self.loader, self.programmer_type))
+        print("Programmer Version: %s" % self.sw_version)
+        print("Has auto-increment: %s" % (str(self.auto_increment)))
+        print("    Has block-mode: %s (size = %d)" % (str(self.block_size > 0), self.block_size))
+        print("  Device Signature: %02x %02x %02x" % (self.signature[0],self.signature[1],self.signature[2]))
         
         if self.signature != bytes(b'\x0f\x95\x1e') and self.signature != bytes(b'\x16\x95\x1e'):
             self.avr109.exit_bootloader()
@@ -138,8 +139,8 @@ class BootLoader(object):
                 pos = 0
                 size = len(segment)
                 while pos < size:
-                    tmp = segment.data[pos:pos + self.block_size]
-                    # print("sending %04x" % (pos + segment.address))
+                    tmp = bytes(segment.data[pos:pos + self.block_size])
+                    # print("sending %04x: %03x" % (pos + segment.address, len(tmp)))
                     self.avr109.send_block(b'F', tmp)
                     pos += self.block_size
                     if self.gui is not None:
